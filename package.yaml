@@ -1,0 +1,115 @@
+name:                hypothesis
+version:             0.1.0.0
+github:              "githubuser/hypothesis"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2020 Author name here"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/hypothesis#readme>
+
+dependencies:
+- name: base
+  version: ">= 4.7 && < 5"
+  mixin:
+    - hiding (Prelude)
+- bytestring
+- name: relude
+  mixin:
+    - (Relude as Prelude)
+# - polysemy
+- freer-simple
+- containers
+- random >= 1.2
+
+default-extensions:
+  # Recommended extensions for polysemy
+  - PolyKinds
+  - TypeApplications
+
+  - EmptyCase
+  - FlexibleContexts
+  - FlexibleInstances
+  - InstanceSigs
+  - MultiParamTypeClasses
+  - LambdaCase
+  - MultiWayIf
+  - NamedFieldPuns
+  - TupleSections
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveLift
+  - DeriveTraversable
+  - DerivingStrategies
+  - GeneralizedNewtypeDeriving
+  - StandaloneDeriving
+  - BangPatterns
+  - KindSignatures
+  - TypeOperators
+  - OverloadedStrings
+  - ScopedTypeVariables
+  - TypeApplications
+  - ConstraintKinds
+  - RankNTypes
+  - ApplicativeDo
+  - DefaultSignatures
+  - PatternSynonyms
+  - ExistentialQuantification
+  - FunctionalDependencies
+  - GADTs
+  - DataKinds
+  - TypeFamilies
+  - TypeFamilyDependencies
+  - TemplateHaskell
+  - QuasiQuotes
+  - PartialTypeSignatures
+
+ghc-options:
+  # Recommended settings for polysemy
+  - -O2
+  - -flate-specialise
+  - -fspecialise-aggressively
+  # - -fplugin=Polysemy.Plugin
+  # Useful warnings
+  - -Wall
+  - -Wcompat
+  - -Wredundant-constraints
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+
+library:
+  source-dirs: src
+
+executables:
+  hypothesis-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hypothesis
+
+tests:
+  hypothesis-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hypothesis
