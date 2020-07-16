@@ -22,21 +22,24 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - name: base
   version: ">= 4.7 && < 5"
-  mixin:
-    - hiding (Prelude)
+  # mixin:
+  #   - hiding (Prelude)
 - bytestring
 - name: relude
-  mixin:
-    - (Relude as Prelude)
+  # mixin:
+  #   - (Relude as Prelude,
+  #      Relude.Extra,
+  #      Relude.Unsafe)
 # - polysemy
 - freer-simple
 - containers
 - random >= 1.2
 
 default-extensions:
-  # Recommended extensions for polysemy
   - PolyKinds
   - TypeApplications
+
+  - NoImplicitPrelude
 
   - EmptyCase
   - FlexibleContexts
@@ -77,17 +80,12 @@ default-extensions:
   - PartialTypeSignatures
 
 ghc-options:
-  # Recommended settings for polysemy
-  - -O2
-  - -flate-specialise
-  - -fspecialise-aggressively
-  # - -fplugin=Polysemy.Plugin
-  # Useful warnings
   - -Wall
   - -Wcompat
   - -Wredundant-constraints
   - -Wincomplete-record-updates
   - -Wincomplete-uni-patterns
+  - -Wno-unused-imports
 
 library:
   source-dirs: src
