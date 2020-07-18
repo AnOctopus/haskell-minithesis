@@ -22,7 +22,7 @@ newtype Size = Size Natural
 
 type Bytes = [Word8]
 -- (a, remainingBytes)
-newtype Gen a = Gen {runGen :: ByteString -> (a, ByteString)}
+newtype Gen a = Gen {runGen :: Bytes -> (a, Bytes)}
 
 f1 :: (a -> b) -> (a, c) -> (b, c)
 f1 f (a, c) = (f a, c)
@@ -44,7 +44,7 @@ instance Applicative Gen where
     (<*>) :: Gen (a -> b) -> Gen a -> Gen b
     Gen g1 <*> Gen g2 = Gen $ go g1 g2
         where
-            go :: (ByteString -> (a -> b, ByteString)) -> (ByteString -> (a, ByteString)) -> ByteString -> (b, ByteString)
+            go :: (Bytes -> (a -> b, Bytes)) -> (Bytes -> (a, Bytes)) -> Bytes -> (b, Bytes)
             go f ga bs = let
                 (fn, rest) = f bs
                 (val, rest2) = ga rest
@@ -55,7 +55,7 @@ genMany :: Gen a -> Gen [a]
 genMany g = (:) <$> g <*> genMany g
 
 genWord8 :: Gen Word8
-genWord8 = Gen $ \(!bs) -> (B.head bs, B.tail bs)
+genWord8 = Gen $ \(!bs) -> (Unsafe.head bs, Unsafe.tail bs)
 
 genList :: Int -> Gen a -> Gen [a]
 genList !size !g = take size <$> genMany g
@@ -119,23 +119,23 @@ evalMyState st s g = a
     where
         (a, _, _) = runState st s g
 
-type ByteStruct a = MyState ([ByteString], Index) R.StdGen a
+type ByteStruct a = MyState ([Bytes], Index) R.StdGen a
 newtype ByteState a = ByteState {unByteState :: ByteStruct a}
     deriving (Functor, Applicative, Monad)
 
-runByteState :: Show a => ByteState a -> [ByteString] -> Index -> R.StdGen -> (a, ([ByteString], Index), R.StdGen)
+runByteState :: ByteState a -> [Bytes] -> Index -> R.StdGen -> (a, ([Bytes], Index), R.StdGen)
 -- runByteState bs idx gen byteState = runState (unByteState byteState) (bs, idx) gen
 runByteState !byteState !bs !idx !gen = (a, b, c)
     where
         !byteStruct = unByteState byteState
         (!a, !b, !c) = runState byteStruct (bs, idx) gen
 
-runByteStateIO :: ByteState a -> IO (a, ([ByteString], Index), R.StdGen)
+runByteStateIO :: ByteState a -> IO (a, ([Bytes], Index), R.StdGen)
 runByteStateIO byteState = do
     gen <- R.newStdGen
     pure $ runState (unByteState byteState) ([], 0) gen
 
-evalByteState :: [ByteString] -> Index -> R.StdGen -> ByteState a -> a
+evalByteState :: [Bytes] -> Index -> R.StdGen -> ByteState a -> a
 evalByteState bs idx gen byteState = a where
     (a, _, _) = runState (unByteState byteState) (bs, idx) gen
 
@@ -145,18 +145,18 @@ evalByteStateIO byteState = do
     let (a, _, _) = runState (unByteState byteState) ([], 0) gen
     pure a
 
-get :: ByteState ([ByteString], Index)
+get :: ByteState ([Bytes], Index)
 get = ByteState . MyState $ \(!s) (!g) -> (s, s, g)
 
-put :: ([ByteString], Index) -> ByteState ()
+put :: ([Bytes], Index) -> ByteState ()
 put !s = ByteState . MyState $ \_ g -> ((), s, g)
 
-getByteList :: ByteState [ByteString]
+getByteList :: ByteState [Bytes]
 getByteList = do
     (bs, _idx) <- get
     pure bs
 
-putByteList :: [ByteString] -> ByteState ()
+putByteList :: [Bytes] -> ByteState ()
 putByteList bytes = do
     (_, idx) <- get
     put (bytes, idx)
@@ -172,14 +172,14 @@ getGen = ByteState . MyState $ \s g -> (g, s, g)
 putGen :: R.StdGen -> ByteState ()
 putGen !gen = ByteState . MyState $ \s _ -> ((), s, gen)
 
-genBytes :: Size -> ByteState ByteString
+genBytes :: Size -> ByteState Bytes
 genBytes !size = do
     g <- getGen
     let (!bytes, g') = R.genByteString (fromIntegral size) g
     putGen g'
-    pure bytes
+    pure $ B.unpack bytes
 
-getOrCreateNext :: Size -> ByteState (ByteString, Index)
+getOrCreateNext :: Size -> ByteState (Bytes, Index)
 getOrCreateNext !size = do
     incIndex
     (!bytes, !idx) <- get
@@ -194,7 +194,7 @@ getOrCreateNext !size = do
     v
 
 
-putAt :: Index -> ByteString -> ByteState ()
+putAt :: Index -> Bytes -> ByteState ()
 putAt !idx !newBytes = do
     (byteState, i) <- get
     put (replace2 byteState (fromIntegral idx) newBytes, i)
@@ -214,44 +214,42 @@ newtype Property a = Property {runProperty :: ByteState a}
 --             else Failure a b
 --     pure r'
 
-(====) :: (Eq a, Show a) => a -> a -> ByteState (PropertyResult a)
-(!a) ==== (!b) = do
+(===) :: Eq a => a -> a -> ByteState (PropertyResult a)
+(!a) === (!b) = do
     let r = if a == b
             then Success
             else Failure a b
     pure r
 
-forAll :: Show a => Gen a -> ByteState a
+forAll :: Gen a -> ByteState a
 forAll !gen = do
     (!bytes, !idx) <- getOrCreateNext 16000
     let (!a, ~rest) = runGen gen bytes
     putAt idx rest
     pure a
 
-
 example :: ByteState (PropertyResult [Int])
 example = do
     i <- forAll genWord8
     l <- forAll $! genList (fromIntegral i) genInt
     r <- forAll $! genList 3 genInt
-    l ==== r
+    l === r
 
 check :: Show a => ByteState (PropertyResult a) -> IO (PropertyResult a)
 check !bs = do
     g <- R.newStdGen
     let
         (!r, (!st, _i), !g') = runByteState bs [] 0 g
-    let
         (!r2, (!s2, i2), g2) = runByteState bs (shrinkAllZero <$> st) 0 g'
 
     print r
     pure r2
 
 printResult :: Show a => IO (PropertyResult a) -> IO ()
-printResult res = do
-    foo <- res
+printResult res0 = do
+    res <- res0
     let failureStr = " is not the same as " :: String
-    case foo of
+    case res of
         Success -> putStrLn "Test passed"
         Failure a b -> putStrLn $ show a <> failureStr <> show b
     pure ()
@@ -260,34 +258,25 @@ data PropertyResult a = Success
                       | Failure a a
     deriving (Show)
 
-shrinkAllZero :: ByteString -> ByteString
-shrinkAllZero bs = B.pack b'
-    where
-        bytes = B.unpack bs
-        b' = (0 .&.) <$> bytes
+shrinkAllZero :: Bytes -> Bytes
+shrinkAllZero bs = (0 .&.) <$> bs
 
+shrinkZeroFirst :: Bytes -> Bytes
+shrinkZeroFirst bs = 0 : Unsafe.tail bs
 
-shrinkZeroFirst :: ByteString -> ByteString
-shrinkZeroFirst bs = B.pack $ zero : Unsafe.tail bytes
-    where
-        bytes = B.unpack bs
-        zero = 0 :: Word8
-
-shrinkZeroFirst' :: [ByteString] -> [ByteString]
+shrinkZeroFirst' :: [Bytes] -> [Bytes]
 shrinkZeroFirst' bs = newBytes : Unsafe.tail bs
     where
         firstBS = Unsafe.head bs
         newBytes = shrinkZeroFirst firstBS
 
 genInt :: Gen Int
-genInt = Gen $ \(!bs) -> f bs
+genInt = Gen $ \bs -> f bs
     where
-        f :: ByteString -> (Int, ByteString)
-        f bs = (fromIntegral word, B.pack rest)
+        f :: Bytes -> (Int, Bytes)
+        f uBs = (fromIntegral word, rest)
             where
-                uBs = B.unpack bs
                 w64 = take 8 uBs
-                -- (a:b:c:d:e:f:g:h:_) = trace (show w64) $ w64
                 (a:b:c:d:e:f:g:h:_) = w64
                 rest = drop 8 uBs
                 word = W.buildWord64 a b c d e f g h
