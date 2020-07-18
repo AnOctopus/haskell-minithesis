@@ -31,7 +31,7 @@ library
       Paths_hypothesis
   hs-source-dirs:
       src
-  default-extensions: PolyKinds TypeApplications NoImplicitPrelude EmptyCase FlexibleContexts FlexibleInstances InstanceSigs MultiParamTypeClasses LambdaCase MultiWayIf NamedFieldPuns TupleSections DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies GeneralizedNewtypeDeriving StandaloneDeriving BangPatterns KindSignatures TypeOperators OverloadedStrings ScopedTypeVariables TypeApplications ConstraintKinds RankNTypes ApplicativeDo DefaultSignatures PatternSynonyms ExistentialQuantification FunctionalDependencies GADTs DataKinds TypeFamilies TypeFamilyDependencies TemplateHaskell QuasiQuotes PartialTypeSignatures
+  default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-unused-imports
   build-depends:
       base >=4.7 && <5
@@ -39,6 +39,7 @@ library
     , containers
     , freer-simple
     , random >=1.2
+    , random-source
     , relude
   default-language: Haskell2010
 
@@ -48,7 +49,7 @@ executable hypothesis-exe
       Paths_hypothesis
   hs-source-dirs:
       app
-  default-extensions: PolyKinds TypeApplications NoImplicitPrelude EmptyCase FlexibleContexts FlexibleInstances InstanceSigs MultiParamTypeClasses LambdaCase MultiWayIf NamedFieldPuns TupleSections DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies GeneralizedNewtypeDeriving StandaloneDeriving BangPatterns KindSignatures TypeOperators OverloadedStrings ScopedTypeVariables TypeApplications ConstraintKinds RankNTypes ApplicativeDo DefaultSignatures PatternSynonyms ExistentialQuantification FunctionalDependencies GADTs DataKinds TypeFamilies TypeFamilyDependencies TemplateHaskell QuasiQuotes PartialTypeSignatures
+  default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-unused-imports -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -57,6 +58,7 @@ executable hypothesis-exe
     , freer-simple
     , hypothesis
     , random >=1.2
+    , random-source
     , relude
   default-language: Haskell2010
 
@@ -67,7 +69,7 @@ test-suite hypothesis-test
       Paths_hypothesis
   hs-source-dirs:
       test
-  default-extensions: PolyKinds TypeApplications NoImplicitPrelude EmptyCase FlexibleContexts FlexibleInstances InstanceSigs MultiParamTypeClasses LambdaCase MultiWayIf NamedFieldPuns TupleSections DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies GeneralizedNewtypeDeriving StandaloneDeriving BangPatterns KindSignatures TypeOperators OverloadedStrings ScopedTypeVariables TypeApplications ConstraintKinds RankNTypes ApplicativeDo DefaultSignatures PatternSynonyms ExistentialQuantification FunctionalDependencies GADTs DataKinds TypeFamilies TypeFamilyDependencies TemplateHaskell QuasiQuotes PartialTypeSignatures
+  default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeApplications TypeApplications TypeFamilies TypeFamilyDependencies TypeOperators
   ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-unused-imports -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -76,5 +78,6 @@ test-suite hypothesis-test
     , freer-simple
     , hypothesis
     , random >=1.2
+    , random-source
     , relude
   default-language: Haskell2010

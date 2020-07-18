@@ -48,7 +48,8 @@ extra-deps:
 
 - random-1.2.0
 - splitmix-0.1
-
+- random-source-0.3.0.8
+- flexible-defaults-0.0.3
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

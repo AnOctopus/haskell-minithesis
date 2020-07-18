@@ -34,50 +34,49 @@ dependencies:
 - freer-simple
 - containers
 - random >= 1.2
+- random-source
 
 default-extensions:
-  - PolyKinds
-  - TypeApplications
-
-  - NoImplicitPrelude
-
-  - EmptyCase
-  - FlexibleContexts
-  - FlexibleInstances
-  - InstanceSigs
-  - MultiParamTypeClasses
-  - LambdaCase
-  - MultiWayIf
-  - NamedFieldPuns
-  - TupleSections
+  - ApplicativeDo
+  - BangPatterns
+  - ConstraintKinds
+  - DataKinds
+  - DefaultSignatures
   - DeriveFoldable
   - DeriveFunctor
   - DeriveGeneric
   - DeriveLift
   - DeriveTraversable
   - DerivingStrategies
-  - GeneralizedNewtypeDeriving
-  - StandaloneDeriving
-  - BangPatterns
-  - KindSignatures
-  - TypeOperators
-  - OverloadedStrings
-  - ScopedTypeVariables
-  - TypeApplications
-  - ConstraintKinds
-  - RankNTypes
-  - ApplicativeDo
-  - DefaultSignatures
-  - PatternSynonyms
+  - EmptyCase
   - ExistentialQuantification
+  - FlexibleContexts
+  - FlexibleInstances
   - FunctionalDependencies
   - GADTs
-  - DataKinds
+  - GeneralizedNewtypeDeriving
+  - InstanceSigs
+  - KindSignatures
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - NamedFieldPuns
+  - NoImplicitPrelude
+  - OverloadedStrings
+  - PartialTypeSignatures
+  - PatternSynonyms
+  - PolyKinds
+  - QuasiQuotes
+  - RankNTypes
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TemplateHaskell
+  - TupleSections
+  - TypeApplications
+  - TypeApplications
   - TypeFamilies
   - TypeFamilyDependencies
-  - TemplateHaskell
-  - QuasiQuotes
-  - PartialTypeSignatures
+  - TypeOperators
 
 ghc-options:
   - -Wall
