@@ -70,12 +70,8 @@ default-extensions:
   - RankNTypes
   - ScopedTypeVariables
   - StandaloneDeriving
-  - TemplateHaskell
   - TupleSections
   - TypeApplications
-  - TypeApplications
-  - TypeFamilies
-  - TypeFamilyDependencies
   - TypeOperators
 
 ghc-options:
