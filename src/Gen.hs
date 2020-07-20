@@ -1,61 +1,89 @@
-{-# LANGUAGE StrictData #-}
 module Gen where
 
-import Relude
+import Relude hiding ((<**>))
+
 import qualified Data.Random.Internal.Words as W
+import Data.Ratio
+import qualified Data.Tree as T
+import qualified Relude.Unsafe as Unsafe
+import qualified System.Random as R
 
-type Bytes = [Word8]
+newtype Index = Index Natural
+    deriving (Show, Eq, Ord, Num, Enum, Real, Integral)
+newtype Size = Size Natural
+    deriving (Show, Eq, Ord, Num, Enum, Real, Integral)
 
--- (a, remainingBytes)
-newtype Gen a = Gen {runGen :: Bytes -> Maybe (a, Bytes)}
 
 f1 :: (a -> b) -> (a, c) -> (b, c)
 f1 f (a, c) = (f a, c)
 
+(<$$>) :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
+h <$$> m = fmap h <$> m
+infixl 4 <$$>
+
+(<**>) :: (Applicative f, Applicative g) => f (g (a -> b)) -> f (g a) -> f (g b)
+h <**> m = liftA2 (<*>) h m
+infixl 4 <**>
+
+
+data Choices = Choices [Word64] Index R.StdGen
+type ChoiceState a = State Choices a
+
+-- Choices -> (Maybe a, Choices)
+newtype Gen a = Gen {runGen :: ChoiceState (Maybe a)}
+
 instance Functor Gen where
-    fmap f (Gen a) = Gen $ fmap (f1 f) . a
+    fmap f (Gen a) = Gen $ f <$$> a
 
 instance Applicative Gen where
-    pure a = Gen $ \bs -> Just (a, bs)
+    pure a = Gen . pure $ Just a
 
-    Gen g1 <*> Gen g2 = Gen $ go g1 g2
-        where
-            go :: (Bytes -> Maybe (a -> b, Bytes)) -> (Bytes -> Maybe (a, Bytes)) -> Bytes -> Maybe (b, Bytes)
-            go f ga bs =
-                case f bs of
-                    Nothing -> Nothing
-                    Just (fn, rest) ->
-                        case ga rest of
-                            Nothing -> Nothing
-                            Just (paVal, remainder) -> Just (fn paVal, remainder)
+    Gen g1 <*> Gen g2 = Gen $ g1 <**> g2
 
-instance Alternative Gen where
-    empty :: Gen a
-    empty = Gen $ const Nothing
 
-    (<|>) :: Gen a -> Gen a -> Gen a
-    (Gen g1) <|> (Gen g2) = Gen $ go g1 g2
-        where
-            go :: (Bytes -> Maybe (a, Bytes)) -> (Bytes -> Maybe (a, Bytes)) -> (Bytes -> Maybe (a, Bytes))
-            go p1 p2 str = p1 str <|> p2 str
+makeChoice :: Word64 -> ChoiceState Word64
+makeChoice n = do
+    (Choices bytes idx stdgen) <- get
+    let i = fromIntegral idx
+        (b, stdgen') = if i < length bytes
+            then (bytes Unsafe.!! i, stdgen)
+            else R.genWord64R n stdgen
+    put $ Choices (bytes <> pure b) (idx + 1) stdgen'
+    pure b
 
-genMany :: Gen a -> Gen [a]
-genMany g = (:) <$> g <*> (genMany g <|> pure [])
+weighted :: Double -> ChoiceState Bool
+weighted p = do
+    a <- makeChoice 100
+    let i = fromIntegral a :: Integer
+    pure $ fromRational (i % 100) < p
 
-genList :: Natural -> Gen a -> Gen [a]
-genList size gen = take (fromIntegral size) <$> genMany gen
 
-genWord8 :: Gen Word8
-genWord8 = Gen $ \bs -> (,) <$> viaNonEmpty head bs <*> viaNonEmpty tail bs
+int :: Gen Int
+int = Gen f where
+    f = do
+        a <- makeChoice maxBound
+        pure . Just $ fromIntegral a
 
-genInt :: Gen Int
-genInt = Gen  fn
-    where
-        fn :: Bytes -> Maybe (Int, Bytes)
-        fn uBs = foo
-            where
-                w64 = take 8 uBs
-                rest = drop 8 uBs
-                foo = case w64 of
-                    (a:b:c:d:e:f:g:h:_) -> Just (fromIntegral $ W.buildWord64 a b c d e f g h, rest)
-                    _ -> Nothing
+list :: forall a. Gen a -> Gen [a]
+list gen = Gen $ do
+    b <- weighted 0.9
+    case b of
+        -- stop here, return an empty list. the only stateful computation is bool choice
+        False -> pure $ Just []
+        -- generate an element, then append it to the results of calling list again
+        True -> do
+            newVal <- runGen gen
+            let nextList = runGen $ list gen
+            l' <- nextList
+            let newList = liftA2 (<>) l' ((:[]) <$> newVal)
+            pure newList
+
+-- instance Alternative Gen where
+--     empty :: Gen a
+--     empty = Gen $ const Nothing
+
+--     (<|>) :: Gen a -> Gen a -> Gen a
+--     (Gen g1) <|> (Gen g2) = Gen $ go g1 g2
+--         where
+--             -- go :: (Bytes -> Maybe (a, Bytes)) -> (Bytes -> Maybe (a, Bytes)) -> (Bytes -> Maybe (a, Bytes))
+--             go p1 p2 str = p1 str <|> p2 str
