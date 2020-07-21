@@ -26,9 +26,7 @@ source-repository head
 library
   exposed-modules:
       Gen
-      Lib
       Shrink
-      State
       TestCase
   other-modules:
       Paths_hypothesis

@@ -25,8 +25,9 @@ infixl 4 <$$>
 h <**> m = liftA2 (<*>) h m
 infixl 4 <**>
 
-
-data Choices = Choices [Word64] Index R.StdGen
+-- type Foo a = StateT Choices (MaybeT Identity) a
+-- newtype Bar a =
+data Choices = Choices [Word64] Index Natural R.StdGen
 type ChoiceState a = State Choices a
 
 -- Choices -> (Maybe a, Choices)
@@ -40,43 +41,62 @@ instance Applicative Gen where
 
     Gen g1 <*> Gen g2 = Gen $ g1 <**> g2
 
+instance Monad Gen where
+    (>>=) :: forall a b. Gen a -> (a -> Gen b) -> Gen b
+    Gen p >>= f = Gen $ state fn
+        where
+            fn :: Choices -> (Maybe b, Choices)
+            fn cs = (join mmb, cs'')
+                where
+                    (a, cs') = runState p cs
+                    fa'' = runGen . sequence $ f <$> a
+                    (mmb, cs'') = runState fa'' cs'
 
-makeChoice :: Word64 -> ChoiceState Word64
+
+makeChoice :: Word64 -> ChoiceState (Maybe Word64)
 makeChoice n = do
-    (Choices bytes idx stdgen) <- get
+    (Choices bytes idx maxSize stdgen) <- get
     let i = fromIntegral idx
         (b, stdgen') = if i < length bytes
             then (bytes Unsafe.!! i, stdgen)
             else R.genWord64R n stdgen
-    put $ Choices (bytes <> pure b) (idx + 1) stdgen'
-    pure b
+    put $ Choices (bytes <> pure b) (idx + 1) maxSize stdgen'
+    pure $ if (idx + 1) > fromIntegral maxSize
+       then Nothing
+       else Just b
 
-weighted :: Double -> ChoiceState Bool
+weighted :: Double -> ChoiceState (Maybe Bool)
 weighted p = do
     a <- makeChoice 100
-    let i = fromIntegral a :: Integer
-    pure $ fromRational (i % 100) < p
+    let i = fromIntegral (fromMaybe 0 a) :: Integer
+        res = fromRational (i % 100) < p
+    case a of
+        Nothing -> pure Nothing
+        Just _ -> pure $ Just res
 
 
 int :: Gen Int
 int = Gen f where
     f = do
         a <- makeChoice maxBound
-        pure . Just $ fromIntegral a
+        pure $ case a of
+            Nothing -> Nothing
+            Just a' -> Just $ fromIntegral a'
 
 list :: forall a. Gen a -> Gen [a]
 list gen = Gen $ do
     b <- weighted 0.9
     case b of
         -- stop here, return an empty list. the only stateful computation is bool choice
-        False -> pure $ Just []
+        Just False -> pure $ Just []
         -- generate an element, then append it to the results of calling list again
-        True -> do
+        Just True -> do
             newVal <- runGen gen
             let nextList = runGen $ list gen
             l' <- nextList
             let newList = liftA2 (<>) l' ((:[]) <$> newVal)
             pure newList
+        Nothing -> pure Nothing
 
 -- instance Alternative Gen where
 --     empty :: Gen a
