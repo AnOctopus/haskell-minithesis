@@ -2,7 +2,7 @@
 module TestCase where
 
 
-import Relude hiding (splitAt)
+import Relude hiding (splitAt, pred)
 import qualified Relude.Unsafe as Unsafe
 import qualified Data.List as L
 import qualified System.Random as R
@@ -37,7 +37,7 @@ l !!?? i = toList l !!? fromIntegral i
 a === b = do
     let r = if a == b
             then Valid
-            else Failure a b
+            else Interesting a b
     pure r
 
 
@@ -58,24 +58,49 @@ check n cs = do
     -- g <- R.newStdGen
     let
         g = R.mkStdGen n
-        gen = runGen cs
-    let (r, c) = runState gen (Choices [] 0 (8 * 1024) g)
-        pred :: Choices -> Bool
-        pred choices = res'
-            where
-                (res, _c2) = runState gen choices
-                res' = case res of
-                    Nothing -> False
-                    Just (Failure _a _b) -> True
-                    Just _ -> False
-        next = deleteChunkPass c pred
-        (r', c') = runState gen next
-        r'' = fromMaybeProp r'
+        gen = runChoiceState $ runGen cs
+    let mRC = runStateT gen (Choices [] 0 (8 * 1024) g)
+        -- (r, c) = fromMaybe (Invalid, Choices [] 0 (8*1024) g) mRC
 
-    pure r''
+    case mRC of
+        Nothing -> print "invalid initial test"
+        Just _ -> print "Valid initial test"
+    let
+        (r, c) = Unsafe.fromJust mRC
+    print r
+    let
+        pred :: Choices -> Bool
+        pred choice = res'
+            where
+                mRes = runStateT gen choice
+                res' = case mRes of
+                    Nothing -> False
+                    Just (r2, c2) -> case r2 of
+                        Interesting _ _ ->
+                            case c2 of
+                                Choices {unIndex=i, unMaxVal=v} | fromIntegral i > v -> False
+                                _ -> True
+                        _ -> False
+        next = shrinkToFixpoint c pred
+        mRC' = runStateT gen next
+
+    case mRC' of
+        Nothing -> print "invalid shrunk test"
+        Just _ -> print "valid shrinking"
+    let
+        (r', c') = Unsafe.fromJust mRC'
+    pure r'
 
 check' :: Show a => Property a -> IO (PropertyResult a)
 check' = check 0
+
+check'' :: Show a => Property a -> IO (PropertyResult a)
+check'' cs = do
+    g <- R.newStdGen
+    let n = fromIntegral $ fst $ R.genWord64 g
+    let c = check n cs
+    c
+
 
 fromMaybeProp :: Maybe (PropertyResult a) -> PropertyResult a
 fromMaybeProp = fromMaybe Invalid
@@ -86,12 +111,12 @@ printResult res0 = do
     let failureStr = " is not the same as " :: String
     case res of
         Valid -> putStrLn "Test passed"
-        Failure a b -> putStrLn $ show a <> failureStr <> show b
+        Interesting a b -> putStrLn $ show a <> failureStr <> show b
         Invalid -> putStrLn ""
     pure ()
 
 data PropertyResult a = Valid
                       | Invalid
-                      | Failure a a
+                      | Interesting a a
     deriving (Show)
 

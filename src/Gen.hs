@@ -25,85 +25,60 @@ infixl 4 <$$>
 h <**> m = liftA2 (<*>) h m
 infixl 4 <**>
 
--- type Foo a = StateT Choices (MaybeT Identity) a
--- newtype Bar a =
-data Choices = Choices [Word64] Index Natural R.StdGen
-type ChoiceState a = State Choices a
+newtype ChoiceState a = ChoiceState {runChoiceState :: StateT Choices Maybe a}
+    deriving newtype (Functor, Applicative, Monad, MonadState Choices, MonadFail)
+-- data Choices = Choices [Word64] Index Natural R.StdGen
+data Choices = Choices {unBytes :: [Word64], unIndex :: Index, unMaxVal :: Natural, unGen :: R.StdGen}
+
+choices :: [Word64] -> Natural -> R.StdGen -> Choices
+choices bytes maxVal gen = Choices bytes 0 maxVal gen
+
+resetIndex :: Choices -> Choices
+resetIndex (Choices w _idx maxVal g) = Choices w 0 maxVal g
 
 -- Choices -> (Maybe a, Choices)
-newtype Gen a = Gen {runGen :: ChoiceState (Maybe a)}
-
-instance Functor Gen where
-    fmap f (Gen a) = Gen $ f <$$> a
-
-instance Applicative Gen where
-    pure a = Gen . pure $ Just a
-
-    Gen g1 <*> Gen g2 = Gen $ g1 <**> g2
-
-instance Monad Gen where
-    (>>=) :: forall a b. Gen a -> (a -> Gen b) -> Gen b
-    Gen p >>= f = Gen $ state fn
-        where
-            fn :: Choices -> (Maybe b, Choices)
-            fn cs = (join mmb, cs'')
-                where
-                    (a, cs') = runState p cs
-                    fa'' = runGen . sequence $ f <$> a
-                    (mmb, cs'') = runState fa'' cs'
+newtype Gen a = Gen {runGen :: ChoiceState a}
+    deriving (Functor, Applicative, Monad)
 
 
-makeChoice :: Word64 -> ChoiceState (Maybe Word64)
+makeChoice :: Word64 -> ChoiceState Word64
 makeChoice n = do
-    (Choices bytes idx maxSize stdgen) <- get
-    let i = fromIntegral idx
+    (Choices !bytes !idx !maxValue !stdgen) <- get
+    let
+        i = fromIntegral idx
         (b, stdgen') = if i < length bytes
             then (bytes Unsafe.!! i, stdgen)
             else R.genWord64R n stdgen
-    put $ Choices (bytes <> pure b) (idx + 1) maxSize stdgen'
-    pure $ if (idx + 1) > fromIntegral maxSize
-       then Nothing
-       else Just b
+    -- trace ("bytes=" <> show bytes <> " idx=" <> show idx <> " length=" <> show (length bytes) <> " maxValue=" <> show maxValue) $
+    put $ Choices (bytes <> pure b) (idx + 1) maxValue stdgen'
+    if (idx + 1) > fromIntegral maxValue
+       then trace "data overrun" $ fail "Data overrun"
+       else pure b
 
-weighted :: Double -> ChoiceState (Maybe Bool)
+weighted :: Double -> ChoiceState Bool
 weighted p = do
     a <- makeChoice 100
-    let i = fromIntegral (fromMaybe 0 a) :: Integer
+    let i = fromIntegral a :: Integer
         res = fromRational (i % 100) < p
-    case a of
-        Nothing -> pure Nothing
-        Just _ -> pure $ Just res
+    pure res
 
 
 int :: Gen Int
 int = Gen f where
     f = do
         a <- makeChoice maxBound
-        pure $ case a of
-            Nothing -> Nothing
-            Just a' -> Just $ fromIntegral a'
+        pure $ fromIntegral a
 
 list :: forall a. Gen a -> Gen [a]
 list gen = Gen $ do
     b <- weighted 0.9
     case b of
         -- stop here, return an empty list. the only stateful computation is bool choice
-        Just False -> pure $ Just []
+        False -> pure []
         -- generate an element, then append it to the results of calling list again
-        Just True -> do
+        True -> do
             newVal <- runGen gen
             let nextList = runGen $ list gen
             l' <- nextList
-            let newList = liftA2 (<>) l' ((:[]) <$> newVal)
+            let newList = l' <> pure newVal
             pure newList
-        Nothing -> pure Nothing
-
--- instance Alternative Gen where
---     empty :: Gen a
---     empty = Gen $ const Nothing
-
---     (<|>) :: Gen a -> Gen a -> Gen a
---     (Gen g1) <|> (Gen g2) = Gen $ go g1 g2
---         where
---             -- go :: (Bytes -> Maybe (a, Bytes)) -> (Bytes -> Maybe (a, Bytes)) -> (Bytes -> Maybe (a, Bytes))
---             go p1 p2 str = p1 str <|> p2 str
