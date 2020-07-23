@@ -1,6 +1,7 @@
 module Main where
 
 import Relude
+import TestCase
 
 main :: IO ()
-main = undefined
+main = printResult $ check 0 example

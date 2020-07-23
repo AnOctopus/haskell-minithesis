@@ -22,19 +22,12 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - name: base
   version: ">= 4.7 && < 5"
-  # mixin:
-  #   - hiding (Prelude)
 - bytestring
-- name: relude
-  # mixin:
-  #   - (Relude as Prelude,
-  #      Relude.Extra,
-  #      Relude.Unsafe)
-# - polysemy
-- freer-simple
+- relude
 - containers
 - random >= 1.2
 - random-source
+
 
 default-extensions:
   - ApplicativeDo

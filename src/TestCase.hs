@@ -1,4 +1,5 @@
 {-# LANGUAGE StrictData #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 module TestCase where
 
 
@@ -16,22 +17,8 @@ import qualified Data.Tree as T
 import Gen
 import Shrink
 
-
-
-replace2 :: [a] -> Natural -> a -> [a]
-replace2 l i v =
-    let (h, t) = L.splitAt (fromIntegral (i - 1)) l
-        r = Unsafe.tail h
-    in
-        case i of
-            0 -> v : Unsafe.tail l
-            _ -> Unsafe.head l : r <> [v] <> Unsafe.tail t
-
 (!!??) :: NonEmpty a -> Index -> Maybe a
 l !!?? i = toList l !!? fromIntegral i
-
-
-
 
 (===) :: Eq a => a -> a -> Property a
 a === b = do
@@ -40,14 +27,18 @@ a === b = do
             else Interesting a b
     pure r
 
-
-
 type Property a = Gen (PropertyResult a)
 
 example :: Property [Int]
 example = do
     l <- list int
     r <- list int
+    l === r
+
+example2 :: Property [Int]
+example2 = do
+    l <- list int
+    let r = [0, 0]
     l === r
 
 type Test a = Property a -> PropertyResult a
@@ -64,10 +55,10 @@ check n cs = do
 
     case mRC of
         Nothing -> print "invalid initial test"
-        Just _ -> print "Valid initial test"
+        Just _ -> print $ "Valid initial test from seed=" <> show n
     let
-        (r, c) = Unsafe.fromJust mRC
-    print r
+        (_r, c) = Unsafe.fromJust mRC
+    -- print r
     let
         pred :: Choices -> Bool
         pred choice = res'
@@ -88,7 +79,7 @@ check n cs = do
         Nothing -> print "invalid shrunk test"
         Just _ -> print "valid shrinking"
     let
-        (r', c') = Unsafe.fromJust mRC'
+        (r', _c') = Unsafe.fromJust mRC'
     pure r'
 
 check' :: Show a => Property a -> IO (PropertyResult a)
