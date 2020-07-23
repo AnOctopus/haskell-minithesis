@@ -12,6 +12,7 @@ import Data.List.NonEmpty (splitAt)
 import qualified Data.ByteString as B
 
 import qualified Data.Tree as T
+import qualified Data.Vector.Storable as V
 
 
 import Gen
@@ -50,7 +51,7 @@ check n cs = do
     let
         g = R.mkStdGen n
         gen = runChoiceState $ runGen cs
-    let mRC = runStateT gen (Choices [] 0 (8 * 1024) g)
+    let mRC = runStateT gen (Choices V.empty 0 (8 * 1024) g)
         -- (r, c) = fromMaybe (Invalid, Choices [] 0 (8*1024) g) mRC
 
     case mRC of

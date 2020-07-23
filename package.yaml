@@ -27,7 +27,7 @@ dependencies:
 - containers
 - random >= 1.2
 - random-source
-
+- vector
 
 default-extensions:
   - ApplicativeDo

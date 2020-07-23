@@ -6,6 +6,7 @@ import Relude hiding ((<**>))
 import qualified Data.Random.Internal.Words as W
 import Data.Ratio
 import qualified Data.Tree as T
+import qualified Data.Vector.Storable as V
 import qualified Relude.Unsafe as Unsafe
 import qualified System.Random as R
 
@@ -28,9 +29,9 @@ infixl 4 <**>
 
 newtype ChoiceState a = ChoiceState {runChoiceState :: StateT Choices Maybe a}
     deriving newtype (Functor, Applicative, Monad, MonadState Choices, MonadFail)
-data Choices = Choices {unBytes :: [Word64], unIndex :: Index, unMaxVal :: Natural, unGen :: R.StdGen}
+data Choices = Choices {unBytes :: V.Vector Word64, unIndex :: Index, unMaxVal :: Natural, unGen :: R.StdGen}
 
-choices :: [Word64] -> Natural -> R.StdGen -> Choices
+choices :: V.Vector Word64 -> Natural -> R.StdGen -> Choices
 choices bytes maxVal gen = Choices bytes 0 maxVal gen
 
 resetIndex :: Choices -> Choices
@@ -44,10 +45,10 @@ makeChoice !n = do
     (Choices !bytes !idx !maxValue !stdgen) <- get
     let
         (!i) = fromIntegral idx
-        (!b, !stdgen') = if i < length bytes
-            then (bytes Unsafe.!! i, stdgen)
+        (!b, !stdgen') = if i < V.length bytes
+            then (bytes V.! i, stdgen)
             else R.genWord64R n stdgen
-    put $ Choices (bytes <> pure b) (idx + 1) maxValue stdgen'
+    put $ Choices (bytes `V.snoc` b) (idx + 1) maxValue stdgen'
     if (idx + 1) > fromIntegral maxValue
        then fail "Data overrun"
        else pure b
