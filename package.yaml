@@ -28,6 +28,7 @@ dependencies:
 - random >= 1.2
 - random-source
 - vector
+- deepseq
 
 default-extensions:
   - ApplicativeDo

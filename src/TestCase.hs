@@ -12,7 +12,7 @@ import Data.List.NonEmpty (splitAt)
 import qualified Data.ByteString as B
 
 import qualified Data.Tree as T
-import qualified Data.Vector.Storable as V
+import qualified Data.Vector.Unboxed as V
 
 
 import Gen
@@ -28,10 +28,18 @@ a === b = do
             else Interesting a b
     pure r
 
+(/==) :: Eq a => a -> a -> Property a
+a /== b = do
+    let r = if a /= b
+            then Valid
+            else Interesting a b
+    pure r
+
 type Property a = Gen (PropertyResult a)
 
 example :: Property [Int]
 example = do
+    -- l <- listRange 1 10 int
     l <- list int
     r <- list int
     l === r
@@ -39,8 +47,8 @@ example = do
 example2 :: Property [Int]
 example2 = do
     l <- list int
-    let r = [0, 0]
-    l === r
+    let r = []
+    l /== r
 
 type Test a = Property a -> PropertyResult a
 
@@ -55,11 +63,14 @@ check n cs = do
         -- (r, c) = fromMaybe (Invalid, Choices [] 0 (8*1024) g) mRC
 
     case mRC of
-        Nothing -> print "invalid initial test"
+        Nothing -> print "Invalid/rejected initial test"
         Just _ -> print $ "Valid initial test from seed=" <> show n
     let
-        (_r, c) = Unsafe.fromJust mRC
-    -- print r
+        (r, c) = case mRC of
+            Just (r', c') -> (r', c')
+            Nothing -> undefined
+    print c
+    print r
     let
         pred :: Choices -> Bool
         pred choice = res'
@@ -70,28 +81,28 @@ check n cs = do
                     Just (r2, c2) -> case r2 of
                         Interesting _ _ ->
                             case c2 of
-                                Choices {unIndex=i, unMaxVal=v} | fromIntegral i > v -> False
-                                _ -> True
+                                Choices {unIndex=i, unMaxVal=v}
+                                    | fromIntegral i > v -> False
+                                    | otherwise -> True
                         _ -> False
         next = shrinkToFixpoint c pred
         mRC' = runStateT gen next
 
     case mRC' of
         Nothing -> print "invalid shrunk test"
-        Just _ -> print "valid shrinking"
+        Just _ -> print ""
     let
         (r', _c') = Unsafe.fromJust mRC'
     pure r'
 
-check' :: Show a => Property a -> IO (PropertyResult a)
-check' = check 0
+-- check' :: Property a -> IO (PropertyResult a)
+-- check' = check 0
 
 check'' :: Show a => Property a -> IO (PropertyResult a)
 check'' cs = do
     g <- R.newStdGen
     let n = fromIntegral $ fst $ R.genWord64 g
-    let c = check n cs
-    c
+    check n cs
 
 
 fromMaybeProp :: Maybe (PropertyResult a) -> PropertyResult a

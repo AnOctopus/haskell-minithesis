@@ -38,6 +38,7 @@ library
       base >=4.7 && <5
     , bytestring
     , containers
+    , deepseq
     , random >=1.2
     , random-source
     , relude
@@ -56,6 +57,7 @@ executable hypothesis-exe
       base >=4.7 && <5
     , bytestring
     , containers
+    , deepseq
     , hypothesis
     , random >=1.2
     , random-source
@@ -76,6 +78,7 @@ test-suite hypothesis-test
       base >=4.7 && <5
     , bytestring
     , containers
+    , deepseq
     , hypothesis
     , random >=1.2
     , random-source
