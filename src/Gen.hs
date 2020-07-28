@@ -3,7 +3,6 @@ module Gen where
 
 import Relude hiding ((<**>))
 
-import Control.DeepSeq
 import qualified Data.Random.Internal.Words as W
 import Data.Ratio
 import qualified Data.Tree as T
@@ -11,33 +10,18 @@ import qualified Data.Vector.Unboxed as V
 import qualified Relude.Unsafe as Unsafe
 import qualified System.Random as R
 
-newtype Index = Index Natural
-    deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic)
-newtype Size = Size Natural
-    deriving (Show, Eq, Ord, Num, Enum, Real, Integral)
+import Internal.Util
 
-
-f1 :: (a -> b) -> (a, c) -> (b, c)
-f1 f (a, c) = (f a, c)
-
-(<$$>) :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
-h <$$> m = fmap h <$> m
-infixl 4 <$$>
-
-(<**>) :: (Applicative f, Applicative g) => f (g (a -> b)) -> f (g a) -> f (g b)
-h <**> m = liftA2 (<*>) h m
-infixl 4 <**>
 
 newtype ChoiceState a = ChoiceState {runChoiceState :: StateT Choices Maybe a}
     deriving newtype (Functor, Applicative, Monad, MonadState Choices, MonadFail)
 data Choices = Choices {unBytes :: V.Vector Word64, unIndex :: Index, unMaxVal :: Natural, unGen :: R.StdGen}
     deriving (Show, Generic)
 
-instance NFData Index
 instance NFData Choices
 
 choices :: V.Vector Word64 -> R.StdGen -> Choices
-choices bytes gen = Choices bytes 0 (fromIntegral $ V.length bytes) gen
+choices bytes = Choices bytes 0 (fromIntegral $ V.length bytes)
 
 newtype Gen a = Gen {runGen :: ChoiceState a}
     deriving (Functor, Applicative, Monad)
@@ -59,9 +43,9 @@ makeChoice !n = do
             then bytes
             else bytes `V.snoc` b
         !exitEarly = ((idx + 1) >= fromIntegral maxValue) || b > n
-    if exitEarly then fail "Overrun or invalid value" else
+    if exitEarly then fail "Overrun or invalid value" else do
         put $ Choices newBytes (idx + 1) maxValue stdgen'
-    pure b
+        pure b
 
 -- | `makeChoice`, specialized to Int since that is the most common type to want a choice as
 makeChoiceInt :: Int -> ChoiceState Int
@@ -84,6 +68,8 @@ weighted !p
               !res = fromRational (i % 100) > (1-p)
           pure res
 
+-- | Make a "choice" that is always the value given. Having a choice represented in the
+--   list seems to help shrinking, even if it is a fake one.
 forcedChoice :: Int -> ChoiceState Int
 forcedChoice !n = do
     (Choices bytes !idx !maxValue !stdgen) <- get
@@ -96,10 +82,10 @@ forcedChoice !n = do
         newBytes = if i < V.length bytes
             then bytes
             else bytes `V.snoc` b
-        !exitEarly = (idx + 1) > fromIntegral maxValue || (b > n')
+        !exitEarly = (idx + 1) > fromIntegral maxValue
     if exitEarly then fail "Overrun or invalid value" else
         put $ Choices newBytes (idx + 1) maxValue stdgen'
-    pure $ fromIntegral b
+    pure $ fromIntegral n'
 
 forcedChoiceBool :: Bool -> ChoiceState Bool
 forcedChoiceBool !b = do
@@ -112,8 +98,20 @@ integral = Gen $ do
     !a <- makeChoice maxBound
     pure $ fromIntegral a
 
+integralRange :: Integral a => a -> a -> Gen a
+integralRange lo hi = Gen $ do
+    a <- makeChoice (fromIntegral $ hi - lo)
+    pure $ fromIntegral (a + fromIntegral lo)
+
+-- | Generate an Int, up to the maximum size representable by a Word64, which is the
+--   max size of an Int on x86-64 platforms. The conversion of Word64 to Int preserves
+--   representation, and Ints are signed, so negative values will be produced sometimes.
+--   Negative values shrink to positive ones, and values shrink to zero.
 int :: Gen Int
 int = integral
+
+intRange :: Int -> Int -> Gen Int
+intRange = integralRange
 
 list :: forall a. Gen a -> Gen [a]
 list !gen = Gen $ do
@@ -123,10 +121,14 @@ list !gen = Gen $ do
         False -> pure []
         -- generate an element, then append it to the results of calling list again
         True -> do
+            -- It is better to draw the new value first, so that values and list-inclusion-choices
+            -- are interleaved in the choice list, which makes it easier to delete the pairs
+            -- and so aids shrinking
             !newVal <- runGen gen
-            let !nextList = runGen $ list gen
-            !l' <- nextList
-            let !newList = l' <> pure newVal
+            !l' <- runGen $ list gen
+            -- The choice for the value is made before the one for the rest of the list
+            -- so it should be added to the front, to match the choice order
+            let newList = pure newVal <> l'
             pure newList
 
 
@@ -134,13 +136,15 @@ listRange :: Int -> Int -> Gen a -> Gen [a]
 listRange !lo !hi !gen = Gen $ do
     !b <- if lo > 0
           then  weighted 1
-          else  weighted $ fromRational (1 - (1 % fromIntegral hi))
+          else if hi < 0
+          then weighted 0
+          else weighted 0.9
     case b of
         False -> pure []
         True -> do
             !newVal <- runGen gen
-            !l' <- runGen $ listRange (lo-1) (hi-1) gen
-            let !newList = l' <> pure newVal
+            l' <- runGen $ listRange (lo-1) (hi-1) gen
+            let newList = pure newVal <> l'
             pure newList
 
 
