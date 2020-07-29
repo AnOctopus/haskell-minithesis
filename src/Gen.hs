@@ -11,16 +11,56 @@ import qualified Relude.Unsafe as Unsafe
 import qualified System.Random as R
 
 import Internal.Util
+import Tree
 
+
+data TestResult = Overrun
+                | Boring
+                | Interesting
+    deriving (Show, Eq, Generic)
+
+interesting :: TestResult -> Bool
+interesting Interesting = True
+interesting _ = False
+
+data PropertyResult a = Valid
+                      | Invalid
+                      | Failure a a
+                      | AssertFailure String
+    deriving (Show, Generic)
+
+asTestResult :: PropertyResult a -> TestResult
+asTestResult = \case
+    Valid -> Boring
+    Invalid -> Overrun
+    Failure _ _ -> Interesting
+    AssertFailure _ -> Interesting
+
+interestingProp :: PropertyResult a -> Bool
+interestingProp (Failure _ _) = True
+interestingProp (AssertFailure _) = True
+interestingProp _ = False
 
 newtype ChoiceState a = ChoiceState {runChoiceState :: StateT Choices Maybe a}
     deriving newtype (Functor, Applicative, Monad, MonadState Choices, MonadFail)
-data Choices = Choices {unBytes :: V.Vector Word64, unIndex :: Index, unMaxVal :: Natural, unGen :: R.StdGen}
+data Choices = Choices {
+    unBytes :: V.Vector Word64,
+    unIndex :: Index,
+    unMaxVal :: Natural,
+    unGen :: R.StdGen,
+    unTrie :: Cache
+    }
     deriving (Show, Generic)
 
+-- type Cache = MapTrie Word64 (PropertyResult Bool)
+type Cache = MapTrie Word64 TestResult
+
+instance NFData (PropertyResult Bool)
+instance NFData TestResult
+instance NFData Cache
 instance NFData Choices
 
-choices :: V.Vector Word64 -> R.StdGen -> Choices
+choices :: V.Vector Word64 -> R.StdGen -> Cache -> Choices
 choices bytes = Choices bytes 0 (fromIntegral $ V.length bytes)
 
 newtype Gen a = Gen {runGen :: ChoiceState a}
@@ -33,7 +73,7 @@ newtype Gen a = Gen {runGen :: ChoiceState a}
 --   during shrinking, the test case is invalid and is aborted.
 makeChoice :: Word64 -> ChoiceState Word64
 makeChoice !n = do
-    (Choices bytes !idx !maxValue !stdgen) <- get
+    (Choices bytes !idx !maxValue !stdgen !trie) <- get
     let
         !i = fromIntegral idx
         (!b, !stdgen') = if i < V.length bytes
@@ -44,7 +84,7 @@ makeChoice !n = do
             else bytes `V.snoc` b
         !exitEarly = ((idx + 1) >= fromIntegral maxValue) || b > n
     if exitEarly then fail "Overrun or invalid value" else do
-        put $ Choices newBytes (idx + 1) maxValue stdgen'
+        put $ Choices newBytes (idx + 1) maxValue stdgen' trie
         pure b
 
 -- | `makeChoice`, specialized to Int since that is the most common type to want a choice as
@@ -72,7 +112,7 @@ weighted !p
 --   list seems to help shrinking, even if it is a fake one.
 forcedChoice :: Int -> ChoiceState Int
 forcedChoice !n = do
-    (Choices bytes !idx !maxValue !stdgen) <- get
+    (Choices bytes !idx !maxValue !stdgen !trie) <- get
     let
         !i = fromIntegral idx
         !n' = fromIntegral n
@@ -84,7 +124,7 @@ forcedChoice !n = do
             else bytes `V.snoc` b
         !exitEarly = (idx + 1) > fromIntegral maxValue
     if exitEarly then fail "Overrun or invalid value" else
-        put $ Choices newBytes (idx + 1) maxValue stdgen'
+        put $ Choices newBytes (idx + 1) maxValue stdgen' trie
     pure $ fromIntegral n'
 
 forcedChoiceBool :: Bool -> ChoiceState Bool

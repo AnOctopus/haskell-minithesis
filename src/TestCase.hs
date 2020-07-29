@@ -17,26 +17,22 @@ import qualified Data.Vector.Unboxed as V
 
 import Gen
 import Shrink
+import Tree
 
-data PropertyResult a = Valid
-                      | Invalid
-                      | Interesting a a
-                      | AssertFailure String
-    deriving (Show)
 
 
 (===) :: Eq a => a -> a -> Property a
 a === b = do
     let r = if a == b
             then Valid
-            else Interesting a b
+            else Failure a b
     pure r
 
 (/==) :: Eq a => a -> a -> Property a
 a /== b = do
     let r = if a /= b
             then Valid
-            else Interesting a b
+            else Failure a b
     pure r
 
 
@@ -71,34 +67,41 @@ diff = undefined
 assert :: Show a => Bool -> a -> Property Bool
 assert b msg = Gen . pure $ if b then Valid else AssertFailure $ show msg
 
-pred :: StateT Choices Maybe (PropertyResult a) -> Choices -> Bool
-pred test choice = res'
+pred :: StateT Choices Maybe (PropertyResult a) -> Choices -> (Bool, Cache)
+pred test choice = res2
     where
+        trie = unTrie choice
+        choiceSeq = V.toList $ unBytes choice
+        res2 = case lookup choiceSeq trie of
+            Nothing -> --trace "cache miss"
+                (res', c')
+            Just cachedResult -> --trace "cache hit"
+               (interesting cachedResult, trie)
         mRes = runStateT test choice
-        res' = case mRes of
-            Nothing -> False
-            Just (r2, c2) -> case r2 of
-                Interesting _ _ ->
-                    case c2 of
-                        Choices {unIndex=i, unMaxVal=v}
-                            | fromIntegral i > v -> False
-                            | unBytes c2 > unBytes choice -> False
-                            | otherwise -> True
-                AssertFailure _ -> True
-                _ -> False
+        (res', c') = case mRes of
+            Nothing -> (False, insert choiceSeq Overrun trie)
+            Just (r2, c2) -> (r3, insert choiceSeq (asTestResult r2) (unTrie c2)) where
+                r3 = case r2 of
+                    Failure _ _ -> case c2 of
+                            Choices {unIndex=i, unMaxVal=v}
+                                | fromIntegral i > v -> False
+                                | unBytes c2 > unBytes choice -> False
+                                | otherwise -> True
+                    AssertFailure _ -> True
+                    _ -> False
 
 checkOne :: Int -> Property a -> IO (PropertyResult a)
 checkOne n cs = do
     let
         g = R.mkStdGen n
         test = runChoiceState $ runGen cs
-        mRC = runStateT test (Choices V.empty 0 (8 * 1024) g)
+        mRC = runStateT test (Choices V.empty 0 (8 * 1024) g Tree.empty)
     case mRC of
         Nothing -> print "Invalid/rejected initial test"
         -- Just _ -> print $ "Valid initial test from seed=" <> show n
         Just _ -> pure ()
     let r = fromMaybeProp (fst <$> mRC)
-        r' = if interesting r then do
+        r' = if notable r then do
             let
                 c = Unsafe.fromJust (snd <$> mRC)
                 next = shrinkToFixpoint c $ pred test
@@ -108,9 +111,9 @@ checkOne n cs = do
 
     pure r'
 
-interesting :: PropertyResult a -> Bool
-interesting = \case
-    Interesting _ _ -> True
+notable :: PropertyResult a -> Bool
+notable = \case
+    Failure _ _ -> True
     AssertFailure _ -> True
     _ -> False
 
@@ -124,7 +127,7 @@ checkOneR cs = do
 check :: Property a -> IO (PropertyResult a)
 check cs = do
     tests <- replicateM 100 $ checkOneR cs
-    let failed = (interesting . fst) `filter` tests
+    let failed = (interestingProp . fst) `filter` tests
         firstFailed = if not (null failed) then Unsafe.head failed else Unsafe.head tests
     print (snd firstFailed)
     pure (fst firstFailed)
@@ -138,7 +141,7 @@ printResult res0 = do
     let failureStr = " is not the same as " :: String
     case res of
         Valid -> putStrLn "Test passed"
-        Interesting a b -> putStrLn $ show a <> failureStr <> show b
+        Failure a b -> putStrLn $ show a <> failureStr <> show b
         AssertFailure s -> putStrLn $ "Assertion invalidated by " <> show s
         Invalid -> putStrLn ""
     pure ()

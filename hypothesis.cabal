@@ -29,6 +29,7 @@ library
       Internal.Util
       Shrink
       TestCase
+      Tree
   other-modules:
       Paths_hypothesis
   hs-source-dirs:
