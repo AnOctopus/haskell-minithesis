@@ -10,7 +10,7 @@ import qualified Data.Vector.Unboxed as V
 import qualified System.Random as R
 
 import Gen
-import Tree
+import Internal.Data.Tree
 
 
 -- | Replace the value in l at index i with v
@@ -26,7 +26,6 @@ replace l i v =
             0 -> v `V.cons` V.tail l
             _ -> V.head l `V.cons` r `V.snoc` v <> V.tail t
 
--- TODO: If suffix would be empty, we could avoid copying prefix by returning it instead of concatenating it with an empty vector
 dropWithin :: V.Unbox a => Natural -> Natural -> V.Vector a -> V.Vector a
 dropWithin startIdx dropCount l = prefix <> suffix
     where

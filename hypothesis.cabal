@@ -26,10 +26,10 @@ source-repository head
 library
   exposed-modules:
       Gen
+      Internal.Data.Tree
       Internal.Util
       Shrink
       TestCase
-      Tree
   other-modules:
       Paths_hypothesis
   hs-source-dirs:

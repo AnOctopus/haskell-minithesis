@@ -11,7 +11,7 @@ import qualified Relude.Unsafe as Unsafe
 import qualified System.Random as R
 
 import Internal.Util
-import Tree
+import Internal.Data.Tree
 
 
 data TestResult = Overrun
@@ -52,8 +52,7 @@ data Choices = Choices {
     }
     deriving (Show, Generic)
 
--- type Cache = MapTrie Word64 (PropertyResult Bool)
-type Cache = MapTrie Word64 TestResult
+type Cache = MapTrie TestResult
 
 instance NFData (PropertyResult Bool)
 instance NFData TestResult

@@ -17,7 +17,7 @@ import qualified Data.Vector.Unboxed as V
 
 import Gen
 import Shrink
-import Tree
+import Internal.Data.Tree
 
 
 
@@ -60,8 +60,8 @@ example3 = do
 type Property a = Gen (PropertyResult a)
 type Test a = Property a -> PropertyResult a
 
-diff :: a -> (a -> b -> Bool) -> b -> Property Bool
-diff = undefined
+-- diff :: a -> (a -> b -> Bool) -> b -> Property Bool
+-- diff = undefined
 
 
 assert :: Show a => Bool -> a -> Property Bool
@@ -95,7 +95,7 @@ checkOne n cs = do
     let
         g = R.mkStdGen n
         test = runChoiceState $ runGen cs
-        mRC = runStateT test (Choices V.empty 0 (8 * 1024) g Tree.empty)
+        mRC = runStateT test (Choices V.empty 0 (8 * 1024) g Internal.Data.Tree.empty)
     case mRC of
         Nothing -> print "Invalid/rejected initial test"
         -- Just _ -> print $ "Valid initial test from seed=" <> show n
