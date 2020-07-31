@@ -48,7 +48,7 @@ deleteChunkPass (Choices lst _idx _maxVal g trie) f =
                 attempt = dropWithin (fromIntegral i) (fromIntegral k) l
                 (res, newCache) =
                     -- trace ("D " <> show attempt <> " k=" <> show k <> " i=" <> show i <> " maxVal=" <> show (V.length attempt)) $
-                     if (attempt < l) then f (choices attempt g c) else (False, c)
+                     if attempt < l then f (choices attempt g c) else (False, c)
                 next
                     | res = innerLoop k i attempt newCache
                     | i > 0 && attempt V.! (i-1) > 0 =
@@ -80,7 +80,7 @@ zeroWithin startIdx dropCount l = prefix <> infix' <> suffix
 zeroChunkPass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
 zeroChunkPass (Choices lst _idx _maxVal g trie) f =
     -- trace ("zeroed from " <> show lst <> " to " <> show final) $
-    choices final g cache
+    choices final g finalCache
     where
         innerLoop :: Int -> Int -> V.Vector Word64 -> Cache -> (V.Vector Word64, Cache)
         innerLoop k i !l c = if i >= 0
@@ -90,7 +90,7 @@ zeroChunkPass (Choices lst _idx _maxVal g trie) f =
                 attempt = zeroWithin (fromIntegral i) (fromIntegral k) l
                 (res, c2) =
                     -- trace ("Z " <> show attempt <> " k=" <> show k <> " i=" <> show i) $
-                    if (attempt < l) then f (choices attempt g trie) else (False, trie)
+                    if attempt < l then f (choices attempt g trie) else (False, trie)
                 next =
                     if res
                     then innerLoop k (i - fromIntegral k) attempt c2
@@ -105,7 +105,7 @@ zeroChunkPass (Choices lst _idx _maxVal g trie) f =
                 (attempt, cache) = innerLoop k i l c
                 next = outerLoop (k `div` 2) attempt cache
 
-        (final, cache) = outerLoop 8 lst trie
+        (final, finalCache) = outerLoop 8 lst trie
 
 shrinkChoicePass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
 shrinkChoicePass (Choices lst _idx _maxVal g trie) f =
@@ -147,7 +147,7 @@ binSearchDown f g = binSearch
                 attempt = replace l (fromIntegral i) mid
                 (res, cache) =
                     -- trace ("S " <> show attempt <> " i=" <> show i) $
-                    if (attempt < l) then f (choices attempt g c) else (False, c)
+                    if attempt < l then f (choices attempt g c) else (False, c)
                 next = if res
                        then binSearch lo mid i attempt cache
                        else binSearch mid hi i l cache
