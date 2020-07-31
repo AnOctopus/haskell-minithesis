@@ -26,6 +26,7 @@ replace l i v =
             0 -> v `V.cons` V.tail l
             _ -> V.head l `V.cons` r `V.snoc` v <> V.tail t
 
+-- | Return a vector with the `dropCount` elements starting at `startIdx` removed.
 dropWithin :: V.Unbox a => Natural -> Natural -> V.Vector a -> V.Vector a
 dropWithin startIdx dropCount l = prefix <> suffix
     where

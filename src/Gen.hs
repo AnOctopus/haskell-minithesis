@@ -54,7 +54,6 @@ data Choices = Choices {
 
 type Cache = MapTrie TestResult
 
-instance NFData (PropertyResult Bool)
 instance NFData TestResult
 instance NFData Cache
 instance NFData Choices
@@ -71,13 +70,22 @@ newtype Gen a = Gen {runGen :: ChoiceState a}
 --   If too much data is requested, or data is requested beyond the original length
 --   during shrinking, the test case is invalid and is aborted.
 makeChoice :: Word64 -> ChoiceState Word64
-makeChoice !n = do
+makeChoice !n = makeChoiceFn n (`mod` n)
+
+-- | Produces a choice between 0 and n, where if the choice is generated, it is interpreted
+--   from a Word64 by a provided function. This allows for customizing the generation of
+--   choices directly, rather than doing so by having a generator interpret a choice value
+--   in some specific way. A max value for the choice must still be provided even though
+--   it is not used in generation, because shrinking can cause choice values generated in
+--   other ways to be used, so we still need to be able to reject ones that are too big.
+makeChoiceFn :: Word64 -> (Word64 -> Word64) -> ChoiceState Word64
+makeChoiceFn !n !f = do
     (Choices bytes !idx !maxValue !stdgen !trie) <- get
     let
         !i = fromIntegral idx
         (!b, !stdgen') = if i < V.length bytes
             then (bytes V.! i, stdgen)
-            else R.genWord64R n stdgen
+            else let (!b', !g') = R.genWord64 stdgen in (f b', g')
         !newBytes = if i < V.length bytes
             then bytes
             else bytes `V.snoc` b
@@ -93,38 +101,27 @@ makeChoiceInt n = do
     pure $ fromIntegral v
 
 -- | A weighted coin flip, which results in True with probability `p`, which should be
---   between 0 and 1
+--   between 0 and 1. Shrinks to False.
 weighted :: Double -> ChoiceState Bool
 weighted !p
     | p >= 1 = forcedChoiceBool True
     | p <= 0 = forcedChoiceBool False
     | otherwise = do
-          -- Hope 1% accuracy is good enough
-          !a <- makeChoice 100
-          let !i = fromIntegral a
-              -- p close to 1 should be mostly true, and we want to shrink to False
-              -- so i=0 should be false and the region from 1 to 1-p should be true
-              !res = fromRational (i % 100) > (1-p)
-          pure res
+          let fn :: Word64 -> Word64
+              fn w = if w > w' then 1 else 0
+                  where
+                      d = fromRational $ toRational ((maxBound :: Word64) `div` 2)
+                      w' = round $ d * (1-p)
+          a <- makeChoiceFn (maxBound `div` 2) fn
+          pure . toEnum $ fromIntegral a
 
 -- | Make a "choice" that is always the value given. Having a choice represented in the
 --   list seems to help shrinking, even if it is a fake one.
 forcedChoice :: Int -> ChoiceState Int
 forcedChoice !n = do
-    (Choices bytes !idx !maxValue !stdgen !trie) <- get
-    let
-        !i = fromIntegral idx
-        !n' = fromIntegral n
-        (b, stdgen') = if i < V.length bytes
-            then (bytes V.! i, stdgen)
-            else (n', stdgen)
-        newBytes = if i < V.length bytes
-            then bytes
-            else bytes `V.snoc` b
-        !exitEarly = (idx + 1) > fromIntegral maxValue
-    if exitEarly then fail "Overrun or invalid value" else
-        put $ Choices newBytes (idx + 1) maxValue stdgen' trie
-    pure $ fromIntegral n'
+    let n' = fromIntegral n
+    choice <- makeChoiceFn n' $ Relude.const n'
+    pure $ fromIntegral choice
 
 forcedChoiceBool :: Bool -> ChoiceState Bool
 forcedChoiceBool !b = do
