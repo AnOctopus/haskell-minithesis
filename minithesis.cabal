@@ -4,14 +4,14 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           hypothesis
+name:           minithesis
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/hypothesis#readme>
-homepage:       https://github.com/githubuser/hypothesis#readme
-bug-reports:    https://github.com/githubuser/hypothesis/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2020 Author name here
+description:    Please see the README on GitHub at <https://github.com/githubuser/minithesis#readme>
+homepage:       https://github.com/anoctopus/minithesis#readme
+bug-reports:    https://github.com/anoctopus/minithesis/issues
+author:         Amanda Walker
+maintainer:     amanda@amandawalker.io
+copyright:      2020 Amanda Walker
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/hypothesis
+  location: https://github.com/anoctopus/minithesis
 
 library
   exposed-modules:
@@ -31,7 +31,7 @@ library
       Shrink
       TestCase
   other-modules:
-      Paths_hypothesis
+      Paths_minithesis
   hs-source-dirs:
       src
   default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeOperators
@@ -47,10 +47,10 @@ library
     , vector
   default-language: Haskell2010
 
-executable hypothesis-exe
+executable minithesis-exe
   main-is: Main.hs
   other-modules:
-      Paths_hypothesis
+      Paths_minithesis
   hs-source-dirs:
       app
   default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeOperators
@@ -60,18 +60,18 @@ executable hypothesis-exe
     , bytestring
     , containers
     , deepseq
-    , hypothesis
+    , minithesis
     , random >=1.2
     , random-source
     , relude
     , vector
   default-language: Haskell2010
 
-test-suite hypothesis-test
+test-suite minithesis-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Paths_hypothesis
+      Paths_minithesis
   hs-source-dirs:
       test
   default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeOperators
@@ -81,7 +81,7 @@ test-suite hypothesis-test
     , bytestring
     , containers
     , deepseq
-    , hypothesis
+    , minithesis
     , random >=1.2
     , random-source
     , relude
