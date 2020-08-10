@@ -4,7 +4,6 @@ module Internal.Data.Tree where
 import Relude
 
 import qualified Data.IntMap.Strict as Map
-import qualified Data.Vector.Unboxed as V
 
 data MapTrie v = MapTrie {mapNode :: Maybe v, mapChildren :: Map.IntMap (MapTrie v)}
     deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)

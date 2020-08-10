@@ -35,12 +35,12 @@ library
   hs-source-dirs:
       src
   default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeOperators
-  ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-unused-imports
+  ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , bytestring
     , containers
-    , deepseq
+    , interpolate
     , random >=1.2
     , random-source
     , relude
@@ -54,12 +54,12 @@ executable minithesis-exe
   hs-source-dirs:
       app
   default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeOperators
-  ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-unused-imports -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , bytestring
     , containers
-    , deepseq
+    , interpolate
     , minithesis
     , random >=1.2
     , random-source
@@ -75,12 +75,12 @@ test-suite minithesis-test
   hs-source-dirs:
       test
   default-extensions: ApplicativeDo BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveFoldable DeriveFunctor DeriveGeneric DeriveLift DeriveTraversable DerivingStrategies EmptyCase ExistentialQuantification FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoImplicitPrelude OverloadedStrings PartialTypeSignatures PatternSynonyms PolyKinds QuasiQuotes RankNTypes ScopedTypeVariables StandaloneDeriving TupleSections TypeApplications TypeOperators
-  ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-unused-imports -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-record-updates -Wincomplete-uni-patterns -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , bytestring
     , containers
-    , deepseq
+    , interpolate
     , minithesis
     , random >=1.2
     , random-source

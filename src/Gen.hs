@@ -1,14 +1,14 @@
 {-# LANGUAGE StrictData #-}
 module Gen where
 
-import Relude hiding ((<**>))
-
-import qualified Data.Random.Internal.Words as W
-import Data.Ratio
-import qualified Data.Tree as T
-import qualified Data.Vector.Unboxed as V
+import Relude
 import qualified Relude.Unsafe as Unsafe
+
+import Data.Bits
+import qualified Data.Vector.Unboxed as V
 import qualified System.Random as R
+
+import qualified GHC.Float as F
 
 import Internal.Util
 import Internal.Data.Tree
@@ -89,8 +89,9 @@ makeChoiceFn !n !f = do
         !newBytes = if i < V.length bytes
             then bytes
             else bytes `V.snoc` b
-        !exitEarly = ((idx + 1) >= fromIntegral maxValue) || b > n
-    if exitEarly then fail "Overrun or invalid value" else do
+        !exitEarly = ((idx + 1) > fromIntegral maxValue) || b > n
+    if exitEarly then -- trace (show idx <> " " <> show maxValue <> " " <> show b <> " " <> show n) $
+        fail "Overrun or invalid value" else do
         put $ Choices newBytes (idx + 1) maxValue stdgen' trie
         pure b
 
@@ -224,3 +225,18 @@ frequency pairs = Gen $ do
         total = sum $ fst <$> pairs
     n <- makeChoiceInt total
     runGen $ pick n pairs
+
+float :: Gen Float
+float = Gen $ do
+    -- Make True correspond to negative so that we shrink to positive
+    neg <- weighted 0.5
+    let neg' = if neg then 1 else 0
+    mantissa0 <- makeChoice (2 ^ (23 :: Int))
+    exponent0 <- makeChoice (2 ^ (8 :: Int))
+    let mantissa = fromIntegral mantissa0 :: Word32
+        exponent = fromIntegral exponent0 :: Word32
+        neg'' = neg' `shiftL` 31
+        w32 = neg'' .|. exponent `shiftL` 23 .|. mantissa
+        f = F.castWord32ToFloat w32
+    -- trace ("neg " <> show neg <> " mantissa " <> show mantissa <> " exponent " <> show exponent <> " " <> show w32 <> " -> " <> show f) $ pure f
+    pure f

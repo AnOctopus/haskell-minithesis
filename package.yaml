@@ -28,7 +28,7 @@ dependencies:
 - random >= 1.2
 - random-source
 - vector
-- deepseq
+- interpolate
 
 default-extensions:
   - ApplicativeDo
@@ -74,7 +74,7 @@ ghc-options:
   - -Wredundant-constraints
   - -Wincomplete-record-updates
   - -Wincomplete-uni-patterns
-  - -Wno-unused-imports
+  # - -Wno-unused-imports
 
 library:
   source-dirs: src

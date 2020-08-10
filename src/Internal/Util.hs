@@ -2,8 +2,6 @@ module Internal.Util where
 
 import Relude hiding ((<**>))
 
-import Control.DeepSeq
-
 f1 :: (a -> b) -> (a, c) -> (b, c)
 f1 f (a, c) = (f a, c)
 

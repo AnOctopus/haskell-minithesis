@@ -11,4 +11,5 @@ main = do
     printResult $ check example
     printResult $ check example2
     printResult $ check example3
+    printResult $ check example4
     pure ()

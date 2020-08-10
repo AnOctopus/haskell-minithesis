@@ -2,15 +2,11 @@
 module Shrink where
 
 import Relude
-import qualified Relude.Unsafe as Unsafe
 
-import Control.DeepSeq
-import qualified Data.List as L
 import qualified Data.Vector.Unboxed as V
 import qualified System.Random as R
 
 import Gen
-import Internal.Data.Tree
 
 
 -- | Replace the value in l at index i with v
@@ -77,6 +73,7 @@ zeroWithin startIdx dropCount l = prefix <> infix' <> suffix
         suffix = V.drop (fromIntegral $ startIdx + dropCount) l
         infix' = V.replicate (fromIntegral dropCount) 0
 
+-- | A pass to change blocks of choices into zeroes.
 zeroChunkPass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
 zeroChunkPass (Choices lst _idx _maxVal g trie) f =
     -- trace ("zeroed from " <> show lst <> " to " <> show final) $
