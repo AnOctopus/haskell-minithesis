@@ -226,17 +226,23 @@ frequency pairs = Gen $ do
     n <- makeChoiceInt total
     runGen $ pick n pairs
 
+-- | Generates a float. Float shrinking is probably the trickiest to implement of the primitives, because the desired shrink behavior is subject to a lot of constraints.
+-- We want to shrink to positive, and for 0 to be the smallest value. We also want to shrink to 1 rather than to machine epsilon, because shrinking to very small values can mislead users into thinking they have a small rounding issue.
+-- Ideally, this will shrink to positive values, with the exponent going to 0, and mantissa going to 0. Because shrinking starts from the end of the choice sequence, the shrunk value will favor having a 0 mantissa and slightly higher exponent over the alternative, even though the alternative is technically smaller in shortlex order.
 float :: Gen Float
 float = Gen $ do
-    -- Make True correspond to negative so that we shrink to positive
+    -- TODO: This really wants some tests
+    exponent0 <- makeChoice (2 ^ (8 :: Int))
+    mantissa0 <- makeChoice (2 ^ (23 :: Int))
     neg <- weighted 0.5
     let neg' = if neg then 1 else 0
-    mantissa0 <- makeChoice (2 ^ (23 :: Int))
-    exponent0 <- makeChoice (2 ^ (8 :: Int))
-    let mantissa = fromIntegral mantissa0 :: Word32
+        mantissa = fromIntegral mantissa0 :: Word32
         exponent = fromIntegral exponent0 :: Word32
-        neg'' = neg' `shiftL` 31
-        w32 = neg'' .|. exponent `shiftL` 23 .|. mantissa
+        -- Swap the upper and lower halves of the byte range, so that 0 generates a 0 value
+        -- exponent' = if exponent <= 128 then exponent + 127 else exponent - 128
+        exponent' = exponent + 127
+        neg32 = neg' `shiftL` 31
+        w32 = neg32 .|. exponent' `shiftL` 23 .|. mantissa
         f = F.castWord32ToFloat w32
-    -- trace ("neg " <> show neg <> " mantissa " <> show mantissa <> " exponent " <> show exponent <> " " <> show w32 <> " -> " <> show f) $ pure f
+    -- trace ("neg " <> show neg <> "   mantissa " <> show mantissa <> "   exponent " <> show exponent'  <> "   " <> show w32 <> " -> " <> show f) $ pure f
     pure f
