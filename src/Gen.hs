@@ -184,7 +184,7 @@ listRange !lo !hi !gen = Gen $ do
             let newList = pure newVal <> l'
             pure newList
 
-
+-- | A generator that always returns the same value.
 const :: a -> Gen a
 const = pure
 
@@ -204,12 +204,17 @@ enumRange lo hi = Gen $ do
     choice <- makeChoiceInt $ hi' - lo'
     pure . toEnum $ lo' + choice
 
+-- | Generate a random value in the full range of a bounded enum, with equal probability.
+-- Shrinks to values with lower integer representation, which will be constructors defined earlier
+-- for user types.
 enumBounded :: (Enum a, Bounded a) => Gen a
 enumBounded = enumRange minBound maxBound
 
+-- | Generate a Bool, shrinking to False.
 bool :: Gen Bool
 bool = enumBounded
 
+-- | Transform a generator to produce Maybe a, with equal probability of Just a or Nothing. Shrinks to Nothing.
 maybe :: Gen a -> Gen (Maybe a)
 maybe gen = frequency [(1, pure Nothing), (1, Just <$> gen)]
 
@@ -244,5 +249,23 @@ float = Gen $ do
         neg32 = neg' `shiftL` 31
         w32 = neg32 .|. exponent' `shiftL` 23 .|. mantissa
         f = F.castWord32ToFloat w32
+    -- trace ("neg " <> show neg <> "   mantissa " <> show mantissa <> "   exponent " <> show exponent'  <> "   " <> show w32 <> " -> " <> show f) $ pure f
+    pure f
+
+-- | Generator for Doubles. This should have the same shrinking behavior as float.
+double :: Gen Double
+double = Gen $ do
+    -- TODO: This really wants some tests
+    exponent0 <- makeChoice (2 ^ (11 :: Int))
+    mantissa0 <- makeChoice (2 ^ (52 :: Int))
+    neg <- weighted 0.5
+    let neg' = if neg then 1 else 0
+        mantissa = fromIntegral mantissa0 :: Word64
+        exponent = fromIntegral exponent0 :: Word64
+        -- Swap the upper and lower halves of the byte range, so that 0 generates a 0 value
+        exponent' = exponent + 1023
+        neg64 = neg' `shiftL` 63
+        w64 = neg64 .|. exponent' `shiftL` 52 .|. mantissa
+        f = F.castWord64ToDouble w64
     -- trace ("neg " <> show neg <> "   mantissa " <> show mantissa <> "   exponent " <> show exponent'  <> "   " <> show w32 <> " -> " <> show f) $ pure f
     pure f
