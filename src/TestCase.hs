@@ -28,32 +28,6 @@ a /== b =  do --[i|a: #{a}, b: #{b}|] $ do
             else Failure a b
     pure r
 
-
-example :: Property [Int]
-example = do
-    l <- listRange 0 2000 int
-    r <- list int
-    l === r
-
--- TODO: This test rarely fails because `list` doesn't produce empty list often enough
--- which is an instance of the general problem of not producing enough small values
-example2 :: Property [Int]
-example2 = do
-    l <- list int
-    l /== []
-
-example3 :: Property Bool
-example3 = do
-    i <- intRange 0 100
-    lst <- listRange i (i*2) int
-    assert (not (any (>=9) lst)) lst
-
-example4 :: Property Bool
-example4 = do
-    f <- float
-    assert (f >= 0.0) f
-
-
 type Property a = Gen (PropertyResult a)
 type Test a = Property a -> PropertyResult a
 

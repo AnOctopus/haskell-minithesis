@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Examples
       Gen
       Internal.Data.Tree
       Internal.Util

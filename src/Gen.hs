@@ -117,24 +117,31 @@ weighted !p
           pure . toEnum $ fromIntegral a
 
 -- | Make a "choice" that is always the value given. Having a choice represented in the
---   list seems to help shrinking, even if it is a fake one.
+-- list seems to help shrinking, even if it is a fake one.
+-- The internal representation of the forced choice can shrink, but this does not affect the value generated.
 forcedChoice :: Int -> ChoiceState Int
 forcedChoice !n = do
     let n' = fromIntegral n
     choice <- makeChoiceFn n' $ Relude.const n'
     pure $ fromIntegral choice
 
+-- | forcedChoice, specialized for Bool because that is a common case that deserves ergonomics.
 forcedChoiceBool :: Bool -> ChoiceState Bool
 forcedChoiceBool !b = do
     let !b' = fromEnum b
     !c <- forcedChoice b'
     pure $ toEnum c
 
+-- | Generate an Integral value. The range of possible values depends on the concrete type generated,
+-- as it will match whatever has the same bit representation of a random Word64. For Int based types,
+-- on x86-64 architectures, this will be +-2^63, or smaller for smaller Int types. Shrinks to 0.
 integral :: Integral a => Gen a
 integral = Gen $ do
     !a <- makeChoice maxBound
     pure $ fromIntegral a
 
+-- | Generate an Integral value, as in `integral`, but instead of being between 0 and maxBound for Word64,
+-- the underlying values will be between the values `lo` and `hi`. Shrinks to `lo`.
 integralRange :: Integral a => a -> a -> Gen a
 integralRange lo hi = Gen $ do
     a <- makeChoice (fromIntegral $ hi - lo)
@@ -147,9 +154,12 @@ integralRange lo hi = Gen $ do
 int :: Gen Int
 int = integral
 
+-- | `integralRange`, specialized to Int. Produces a value between `lo` and `hi`, shrinking to `lo`.
 intRange :: Int -> Int -> Gen Int
 intRange = integralRange
 
+-- | Generates a list of `a`, with a random length that is geometrically distributed, average length 10.
+-- Shrinks to shorter lists, and smaller values of `a`.
 list :: forall a. Gen a -> Gen [a]
 list !gen = Gen $ do
     !b <- weighted 0.9
@@ -168,7 +178,9 @@ list !gen = Gen $ do
             let newList = pure newVal <> l'
             pure newList
 
-
+-- | Generates a list of `a`, with a length of at least `lo`, at most `hi`.
+-- The length above `lo` is geometrically distributed with mean 10, capped at `hi` - `lo`.
+-- TODO: Rewrite to make the average length of the list be the average of `lo` and `hi`.
 listRange :: Int -> Int -> Gen a -> Gen [a]
 listRange !lo !hi !gen = Gen $ do
     !b <- if lo > 0
