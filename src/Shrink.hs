@@ -36,35 +36,35 @@ deleteChunkPass (Choices lst _idx _maxVal g trie) f =
     -- trace ("deleted from " <> show lst <> " to " <> show final) $
     choices final g cache
     where
-        innerLoop :: Int -> Int -> V.Vector Word64 -> Cache -> (V.Vector Word64, Cache)
-        innerLoop k i !l !c = if i >= 0
-                              then next
-                              else (l, c)
+        innerLoop :: Int -> Int -> V.Vector Word64 -> Cache -> (Int, Int, V.Vector Word64, Cache)
+        innerLoop k i !l !c = NE.last shrinks
+            where
+                p (k', i', _l, _c) = k' > 0 || i' >= 0
+                innerL = NE.iterate inner (k, i, l, c)
+                -- Include the first shrink in the list, in case none were successful
+                shrinks = NE.head innerL :| NE.takeWhile p innerL
+
+        inner :: (Int, Int, V.Vector Word64, Cache) -> (Int, Int, V.Vector Word64, Cache)
+        inner (k, i, !l, !c)
+            | i >= 0 = next
+            | k > 0 = (k `div` 2, V.length l - k - 1, l, c)
+            | otherwise = (k, i, l, c)
             where
                 attempt = dropWithin (fromIntegral i) (fromIntegral k) l
                 (res, newCache) =
                     -- trace ("D " <> show attempt <> " k=" <> show k <> " i=" <> show i <> " maxVal=" <> show (V.length attempt)) $
                      if attempt < l then f (choices attempt g c) else (False, c)
                 next
-                    | res = innerLoop k i attempt newCache
+                    | res = (k, i, attempt, newCache)
                     | i > 0 && attempt V.! (i-1) > 0 =
                       let !a2 = replace attempt (fromIntegral i-1) ((attempt V.! (i-1)) `div` 2)
                           (r2, c2) = f (choices a2 g trie)
                       in
-                          if r2 then innerLoop k i a2 c2
-                          else innerLoop k (i-1) l c2
-                    | otherwise = innerLoop k (i-1) l newCache
+                          if r2 then (k, i, a2, c2)
+                          else (k, i-1, l, c2)
+                    | otherwise = (k, i-1, l, newCache)
 
-        outerLoop :: Int -> V.Vector Word64 -> Cache -> (V.Vector Word64, Cache)
-        outerLoop k !l !c = if k > 0
-                            then next
-                            else (l, c)
-            where
-                i = V.length l - k - 1
-                (attempt, iCache) = innerLoop k i l c
-                next = outerLoop (k `div` 2) attempt iCache
-
-        (final, cache) = outerLoop 8 lst trie
+        (_, _, final, cache) = innerLoop 8 (V.length lst - 8 - 1) lst trie
 
 zeroWithin :: (Num a, V.Unbox a) => Natural -> Natural -> V.Vector a -> V.Vector a
 zeroWithin startIdx dropCount l = prefix <> infix' <> suffix
