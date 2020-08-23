@@ -29,6 +29,7 @@ library
       Gen
       Internal.Data.Tree
       Internal.Util
+      Internal.Vector
       Shrink
       TestCase
   other-modules:

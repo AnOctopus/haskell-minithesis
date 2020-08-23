@@ -19,3 +19,6 @@ instance NFData Index
 
 newtype Size = Size Natural
     deriving (Show, Eq, Ord, Num, Enum, Real, Integral)
+
+(-.) :: Natural -> Natural -> Natural
+a -. b = if b >= a then 0 else a - b

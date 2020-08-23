@@ -9,6 +9,7 @@ import qualified Data.Vector.Unboxed as V
 import qualified System.Random as R
 
 import Gen
+import qualified Internal.Vector as VI
 
 -- TODO: The generator seed is reset after each shrink pass, which seems incorrect and might cause bad local minima
 
@@ -18,8 +19,8 @@ type ShrinkState = (Int, Int, V.Vector Word64, Cache)
 --   This seems to perform much better than the provided functions in Data.Vector.Unboxed
 replace :: V.Unbox a => V.Vector a -> Natural -> a -> V.Vector a
 replace l i v =
-    let (h, t) = V.splitAt (fromIntegral i) l
-        r = if V.length h == 0
+    let (h, t) = VI.splitAt i l
+        r = if VI.length h == 0
             then t
             else V.tail h
     in
@@ -31,8 +32,17 @@ replace l i v =
 dropWithin :: V.Unbox a => Natural -> Natural -> V.Vector a -> V.Vector a
 dropWithin startIdx dropCount l = prefix <> suffix
     where
-        prefix = V.take (fromIntegral startIdx) l
-        suffix = V.drop (fromIntegral $ startIdx + dropCount) l
+        prefix = VI.take startIdx l
+        suffix = VI.drop (startIdx + dropCount) l
+
+innerLoop :: ShrinkState -> (ShrinkState -> ShrinkState) -> ShrinkState
+innerLoop s f = NE.last shrinks
+    where
+        p (k', i', _l, _c) = k' > 0 || i' >= 0
+        triedShrinks = NE.iterate f s
+        -- Include the first shrink in the list, in case none were successful
+        shrinks = NE.head triedShrinks :| NE.takeWhile p triedShrinks
+
 
 -- | A pass to delete blocks of choices at a time. When this works, it shrinks the choice
 --   sequence significantly, which makes everything else faster.
@@ -41,19 +51,11 @@ deleteChunkPass (Choices lst _idx _maxVal g trie) f =
     -- trace ("deleted from " <> show lst <> " to " <> show final) $
     choices final g cache
     where
-        innerLoop :: Int -> Int -> V.Vector Word64 -> Cache -> ShrinkState
-        innerLoop k i !l !c = NE.last shrinks
-            where
-                p (k', i', _l, _c) = k' > 0 || i' >= 0
-                triedShrinks = NE.iterate inner (k, i, l, c)
-                -- Include the first shrink in the list, in case none were successful
-                shrinks = NE.head triedShrinks :| NE.takeWhile p triedShrinks
-
         inner :: ShrinkState -> ShrinkState
-        inner (k, i, !l, !c)
+        inner s@(k, i, !l, !c)
             | i >= 0 = next
             | k > 0 = (k `div` 2, V.length l - k - 1, l, c)
-            | otherwise = (k, i, l, c)
+            | otherwise = s
             where
                 attempt = dropWithin (fromIntegral i) (fromIntegral k) l
                 (res, newCache) =
@@ -69,14 +71,14 @@ deleteChunkPass (Choices lst _idx _maxVal g trie) f =
                           else (k, i-1, l, c2)
                     | otherwise = (k, i-1, l, newCache)
 
-        (_, _, final, cache) = innerLoop 8 (V.length lst - 8 - 1) lst trie
+        (_, _, final, cache) = innerLoop (8, V.length lst - 8 - 1, lst, trie) inner
 
 zeroWithin :: (Num a, V.Unbox a) => Natural -> Natural -> V.Vector a -> V.Vector a
 zeroWithin startIdx dropCount l = prefix <> infix' <> suffix
     where
-        prefix = V.take (fromIntegral startIdx) l
-        suffix = V.drop (fromIntegral $ startIdx + dropCount) l
-        infix' = V.replicate (fromIntegral dropCount) 0
+        prefix = VI.take startIdx l
+        suffix = VI.drop (startIdx + dropCount) l
+        infix' = VI.replicate dropCount 0
 
 -- | A pass to change blocks of choices into zeroes.
 zeroChunkPass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
@@ -84,14 +86,6 @@ zeroChunkPass (Choices lst _idx _maxVal g trie) f =
     -- trace ("zeroed from " <> show lst <> " to " <> show final) $
     choices final g finalCache
     where
-        innerLoop :: Int -> Int -> V.Vector Word64 -> Cache -> ShrinkState
-        innerLoop k i !l !c = NE.last shrinks
-            where
-                p (k', i', _l, _c) = k' > 0 || i' >= 0
-                triedShrinks = NE.iterate inner (k, i, l, c)
-                -- Include the first shrink in the list, in case none were successful
-                shrinks = NE.head triedShrinks :| NE.takeWhile p triedShrinks
-
         inner :: ShrinkState -> ShrinkState
         inner s@(k, i, !l, c)
             | i >= 0 = next
@@ -107,32 +101,25 @@ zeroChunkPass (Choices lst _idx _maxVal g trie) f =
                     then (k, i - fromIntegral k, attempt, c2)
                     else (k, i - 1, l, c2)
 
-        (_, _, final, finalCache) = innerLoop 8 (V.length lst - 8) lst trie
+        (_, _, final, finalCache) = innerLoop (8, V.length lst - 8, lst, trie) inner
 
 shrinkChoicePass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
 shrinkChoicePass (Choices lst _idx _maxVal g trie) f =
     -- trace ("shrunk from " <> show lst <> " to " <> show final) $
     choices final g finalCache
     where
-        innerLoop :: Int -> V.Vector Word64 -> Cache -> (Int, V.Vector Word64, Cache)
-        innerLoop i !l !c = NE.last shrinks
-            where
-                p (i', _l, _c) = i' >= 0
-                innerL = NE.iterate outer (i, l, c)
-                -- Include the first shrink in the list, in case none were successful
-                shrinks = NE.head innerL :| NE.takeWhile p innerL
-
-        outer :: (Int, V.Vector Word64, Cache) -> (Int, V.Vector Word64, Cache)
-        outer s@(i, l, c)
+        outer :: ShrinkState -> ShrinkState
+        outer s@(k, i, l, c)
             | i >= 0 = next
+            | k > 0 = (0, 0, l, c)
             | otherwise = s
             where
                 lo = 0
                 hi = l V.! i
                 (attempt, cache) = binSearchDown f g lo hi i l c
-                next = (i-1, attempt, cache)
+                next = (k, i-1, attempt, cache)
 
-        (_, final, finalCache) = innerLoop (V.length lst - 1) lst trie
+        (_, _, final, finalCache) = innerLoop (1, V.length lst - 1, lst, trie) outer
 
 binSearchDown :: (Choices -> (Bool, Cache)) -> R.StdGen -> Word64 -> Word64 -> Int -> V.Vector Word64 -> Cache -> (V.Vector Word64, Cache)
 binSearchDown f g = binSearch
