@@ -11,7 +11,7 @@ import Gen
 import Shrink
 import Internal.Data.Tree
 
-import Data.String.Interpolate
+-- import Data.String.Interpolate
 
 
 (===) :: Eq a => a -> a -> Property a
@@ -30,9 +30,6 @@ a /== b =  do --[i|a: #{a}, b: #{b}|] $ do
 
 type Property a = Gen (PropertyResult a)
 type Test a = Property a -> PropertyResult a
-
--- diff :: a -> (a -> b -> Bool) -> b -> Property Bool
--- diff = undefined
 
 
 assert :: Show a => Bool -> a -> Property Bool
@@ -61,8 +58,8 @@ pred test choice = res2
                     AssertFailure _ -> True
                     _ -> False
 
-runOne :: Int -> Gen a -> Maybe (a, Choices)
-runOne n cs = do
+runOne :: Gen a -> Int -> Maybe (a, Choices)
+runOne cs n = do
     let
         g = R.mkStdGen n
         test = runChoiceState $ runGen cs
@@ -70,26 +67,21 @@ runOne n cs = do
     mRC
 
 
-checkOne :: Int -> Property a -> IO (PropertyResult a)
-checkOne n cs = do
+checkOne :: Property a -> Int -> (PropertyResult a)
+checkOne cs n = do
     let
         test = runChoiceState $ runGen cs
-        mRC = runOne n cs
-    case mRC of
-        Nothing -> print ("Invalid/rejected initial test" :: Text)
-        Just _ -> pure ()
-    let r = fromMaybeProp (fst <$> mRC)
-        r' = if notable r then do
-            let
-                c = Unsafe.fromJust (snd <$> mRC)
-                next = shrinkToFixpoint c $ pred test
-                mRC' = runStateT test next
-                fmp = fromMaybeProp (fst <$> mRC')
-            -- trace ("next " <> show next <> " mRC' " <> show mRC' <> " fmp " <> show fmp) $ fmp
-            fmp
-            else r
-
-    pure r'
+        mRC = runOne cs n
+        r = fromMaybeProp (fst <$> mRC)
+    if notable r then do
+        let
+            c = Unsafe.fromJust (snd <$> mRC)
+            next = shrinkToFixpoint c $ pred test
+            mRC' = runStateT test next
+            fmp = fromMaybeProp (fst <$> mRC')
+        -- trace ("next " <> show next <> " mRC' " <> show mRC' <> " fmp " <> show fmp) $ fmp
+        fmp
+        else r
 
 notable :: PropertyResult a -> Bool
 notable = \case
@@ -97,16 +89,24 @@ notable = \case
     AssertFailure _ -> True
     _ -> False
 
+checkSome :: Property a -> [Int] -> [PropertyResult a]
+checkSome cs ns = (cs `checkOne`) <$> ns
+
+checkOneIO :: Property a -> Int -> IO (PropertyResult a)
+checkOneIO cs n = pure $ checkOne cs n
+
 checkOneR :: Property a -> IO (PropertyResult a, Int)
 checkOneR cs = do
     g <- R.newStdGen
     let n = fromIntegral $ fst $ R.genWord64 g
-    res <- checkOne n cs
+        res = checkOne cs n
     pure (res, n)
 
 check :: Property a -> IO (PropertyResult a)
 check cs = do
-    tests <- replicateM 100 $ checkOneR cs
+    -- tests <- replicateM 100 $ checkOneR cs
+    seeds <- replicateM 100 $ R.randomIO
+    let tests = zip (checkSome cs seeds) seeds
     let failed = (interestingProp . fst) `filter` tests
         firstFailed = if not (null failed) then Unsafe.head failed else Unsafe.head tests
     print (snd firstFailed)

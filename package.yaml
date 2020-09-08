@@ -29,6 +29,7 @@ dependencies:
 - random-source
 - vector
 - interpolate
+- hspec
 
 default-extensions:
   - ApplicativeDo
@@ -74,7 +75,9 @@ ghc-options:
   - -Wredundant-constraints
   - -Wincomplete-record-updates
   - -Wincomplete-uni-patterns
-  # - -Wno-unused-imports
+  - -haddock
+  - -fwrite-ide-info
+  - -hiedir=.hie
 
 library:
   source-dirs: src
@@ -98,5 +101,6 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -haddock
     dependencies:
     - minithesis

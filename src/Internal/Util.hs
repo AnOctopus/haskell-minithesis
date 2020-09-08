@@ -2,8 +2,6 @@ module Internal.Util where
 
 import Relude hiding ((<**>))
 
-f1 :: (a -> b) -> (a, c) -> (b, c)
-f1 f (a, c) = (f a, c)
 
 (<$$>) :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
 h <$$> m = fmap h <$> m
