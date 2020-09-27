@@ -26,10 +26,12 @@ dependencies:
 - relude
 - containers
 - random >= 1.2
-- random-source
+# - random-source
 - vector
-- interpolate
+# - interpolate
+- neat-interpolation
 - hspec
+# - ghc-clippy-plugin
 
 default-extensions:
   - ApplicativeDo
@@ -75,9 +77,14 @@ ghc-options:
   - -Wredundant-constraints
   - -Wincomplete-record-updates
   - -Wincomplete-uni-patterns
+  - -Widentities
+  - -Wpartial-fields
   - -haddock
   - -fwrite-ide-info
   - -hiedir=.hie
+  - -fhide-source-paths
+  - -freverse-errors
+  # - -fplugin=Clippy
 
 library:
   source-dirs: src

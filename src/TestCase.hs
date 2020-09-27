@@ -90,10 +90,7 @@ notable = \case
     _ -> False
 
 checkSome :: Property a -> [Int] -> [PropertyResult a]
-checkSome cs ns = (cs `checkOne`) <$> ns
-
-checkOneIO :: Property a -> Int -> IO (PropertyResult a)
-checkOneIO cs n = pure $ checkOne cs n
+checkSome cs = fmap (cs `checkOne`)
 
 checkOneR :: Property a -> IO (PropertyResult a, Int)
 checkOneR cs = do

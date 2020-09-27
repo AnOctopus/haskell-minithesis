@@ -7,13 +7,6 @@ import TestCase
 import Examples
 import Gen
 
--- main :: IO ()
--- main = do
---     printResult $ checkOneIO 0 Examples.example
---     printResult $ checkOneIO 0 example2
---     printResult $ checkOneIO 0 example3
---     printResult $ checkOneIO 0 example4
---     pure ()
 
 main :: IO ()
 main = hspec $ do

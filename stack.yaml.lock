@@ -5,10 +5,10 @@
 
 packages:
 - completed:
-    hackage: random-1.2.0@sha256:5ca8674e95c46c7eb90f520c26aea22d403625c97697275434afba66ebd32b05,5897
+    hackage: random-1.2.0@sha256:4321209c8faedc034810ea8ed0dbc4a36f1a1df97b75af024219f2f533da57de,6094
     pantry-tree:
       size: 1259
-      sha256: 8ba46c3d6b1cd0d4a4ee472922497f8d0778a1aaf7bbcac328a0b06b4d153309
+      sha256: 29ff0a7ec5bf123e2c40f849b7af163950854a6c08c68b4a1b4364ce7a515af0
   original:
     hackage: random-1.2.0
 - completed:

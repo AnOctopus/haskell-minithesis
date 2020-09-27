@@ -50,6 +50,8 @@ extra-deps:
 - splitmix-0.1
 - random-source-0.3.0.8
 - flexible-defaults-0.0.3
+# - ghc-clippy-plugin-0.0.0.1
+# - text-regex-replace-0.1.1.3
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -76,3 +78,4 @@ extra-deps:
 # compiler-check: newer-minor
 allow-newer: true
 rebuild-ghc-options: true
+# apply-ghc-options: everything
