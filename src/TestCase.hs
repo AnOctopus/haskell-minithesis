@@ -11,8 +11,6 @@ import Gen
 import Shrink
 import Internal.Data.Tree
 
--- import Data.String.Interpolate
-
 
 (===) :: Eq a => a -> a -> Property a
 a === b = do
@@ -35,10 +33,9 @@ type Test a = Property a -> PropertyResult a
 assert :: Show a => Bool -> a -> Property Bool
 assert b msg = Gen . pure $ if b then Valid else AssertFailure $ show msg
 
-pred :: StateT Choices Maybe (PropertyResult a) -> Choices -> (Bool, Cache)
-pred test choice = res2
+pred :: StateT Choices Maybe (PropertyResult a) -> (Choices, Cache) -> (Bool, Cache)
+pred test (choice, trie) = res2
     where
-        trie = unTrie choice
         choiceSeq = V.toList $ unBytes choice
         res2 = case lookup choiceSeq trie of
             Nothing -> --trace "cache miss"
@@ -48,7 +45,7 @@ pred test choice = res2
         mRes = runStateT test choice
         (res', c') = case mRes of
             Nothing -> (False, insert choiceSeq Overrun trie)
-            Just (r2, c2) -> (r3, insert choiceSeq (asTestResult r2) (unTrie c2)) where
+            Just (r2, c2) -> (r3, insert choiceSeq (asTestResult r2) trie) where
                 r3 = case r2 of
                     Failure _ _ -> case c2 of
                             Choices {unIndex=i, unMaxVal=v}
@@ -58,12 +55,13 @@ pred test choice = res2
                     AssertFailure _ -> True
                     _ -> False
 
+
 runOne :: Gen a -> Int -> Maybe (a, Choices)
 runOne cs n = do
     let
         g = R.mkStdGen n
         test = runChoiceState $ runGen cs
-        mRC = runStateT test (Choices V.empty 0 (8 * 1024) g Internal.Data.Tree.empty)
+        mRC = runStateT test (Choices V.empty 0 (8 * 1024) g)
     mRC
 
 
@@ -76,7 +74,7 @@ checkOne cs n = do
     if notable r then do
         let
             c = Unsafe.fromJust (snd <$> mRC)
-            next = shrinkToFixpoint c $ pred test
+            next = shrinkToFixpoint (c, Internal.Data.Tree.empty) $ pred test
             mRC' = runStateT test next
             fmp = fromMaybeProp (fst <$> mRC')
         -- trace ("next " <> show next <> " mRC' " <> show mRC' <> " fmp " <> show fmp) $ fmp

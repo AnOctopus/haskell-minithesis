@@ -6,6 +6,7 @@ import Relude hiding (iterate)
 import qualified Data.List.NonEmpty as NE
 -- import qualified Data.List as L
 import qualified Data.Vector.Unboxed as V
+import Data.Vector.Unboxed (Unbox, Vector, cons, snoc)
 import qualified System.Random as R
 
 import Gen
@@ -13,11 +14,12 @@ import qualified Internal.Vector as VI
 
 -- TODO: The generator seed is reset after each shrink pass, which seems incorrect and might cause bad local minima
 
-type ShrinkState = (Int, Int, V.Vector Word64, Cache)
+type ShrinkState = (Int, Int, ChoiceSeq, Cache)
+type ShrinkState' a = State Cache a
 
 -- | Replace the value in l at index i with v
 --   This seems to perform much better than the provided functions in Data.Vector.Unboxed
-replace :: V.Unbox a => V.Vector a -> Natural -> a -> V.Vector a
+replace :: Unbox a => Vector a -> Natural -> a -> Vector a
 replace l i v =
     let (h, t) = VI.splitAt i l
         r = if VI.length h == 0
@@ -25,11 +27,11 @@ replace l i v =
             else V.tail h
     in
         case i of
-            0 -> v `V.cons` V.tail l
-            _ -> V.head l `V.cons` r `V.snoc` v <> V.tail t
+            0 -> v `cons` V.tail l
+            _ -> V.head l `cons` r `snoc` v <> V.tail t
 
 -- | Return a vector with the `dropCount` elements starting at `startIdx` removed.
-dropWithin :: V.Unbox a => Natural -> Natural -> V.Vector a -> V.Vector a
+dropWithin :: Unbox a => Natural -> Natural -> Vector a -> Vector a
 dropWithin startIdx dropCount l = prefix <> suffix
     where
         prefix = VI.take startIdx l
@@ -46,10 +48,10 @@ innerLoop s f = NE.last shrinks
 
 -- | A pass to delete blocks of choices at a time. When this works, it shrinks the choice
 --   sequence significantly, which makes everything else faster.
-deleteChunkPass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
-deleteChunkPass (Choices lst _idx _maxVal g trie) f =
+deleteChunkPass :: (Choices, Cache) -> ((Choices, Cache) -> (Bool, Cache)) -> (Choices, Cache)
+deleteChunkPass ((Choices lst _idx _maxVal g), trie) f =
     -- trace ("deleted from " <> show lst <> " to " <> show final) $
-    choices final g cache
+    (choices final g, cache)
     where
         inner :: ShrinkState -> ShrinkState
         inner s@(k, i, !l, !c)
@@ -60,12 +62,12 @@ deleteChunkPass (Choices lst _idx _maxVal g trie) f =
                 attempt = dropWithin (fromIntegral i) (fromIntegral k) l
                 (res, newCache) =
                     -- trace ("D " <> show attempt <> " k=" <> show k <> " i=" <> show i <> " maxVal=" <> show (V.length attempt)) $
-                     if attempt < l then f (choices attempt g c) else (False, c)
+                     if attempt < l then f (choices attempt g, c) else (False, c)
                 next
                     | res = (k, i, attempt, newCache)
                     | i > 0 && attempt V.! (i-1) > 0 =
                       let !a2 = replace attempt (fromIntegral i-1) ((attempt V.! (i-1)) `div` 2)
-                          (r2, c2) = f (choices a2 g trie)
+                          (r2, c2) = f (choices a2 g, trie)
                       in
                           if r2 then (k, i, a2, c2)
                           else (k, i-1, l, c2)
@@ -81,10 +83,10 @@ zeroWithin startIdx dropCount l = prefix <> infix' <> suffix
         infix' = VI.replicate dropCount 0
 
 -- | A pass to change blocks of choices into zeroes.
-zeroChunkPass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
-zeroChunkPass (Choices lst _idx _maxVal g trie) f =
+zeroChunkPass :: (Choices, Cache) -> ((Choices, Cache) -> (Bool, Cache)) -> (Choices, Cache)
+zeroChunkPass ((Choices lst _idx _maxVal g), trie) f =
     -- trace ("zeroed from " <> show lst <> " to " <> show final) $
-    choices final g finalCache
+    (choices final g, finalCache)
     where
         inner :: ShrinkState -> ShrinkState
         inner s@(k, i, !l, c)
@@ -95,18 +97,18 @@ zeroChunkPass (Choices lst _idx _maxVal g trie) f =
                 attempt = zeroWithin (fromIntegral i) (fromIntegral k) l
                 (res, c2) =
                     -- trace ("Z " <> show attempt <> " k=" <> show k <> " i=" <> show i) $
-                    if attempt < l then f (choices attempt g trie) else (False, trie)
+                    if attempt < l then f (choices attempt g, trie) else (False, trie)
                 next =
                     if res
-                    then (k, i - fromIntegral k, attempt, c2)
+                    then (k, i - k, attempt, c2)
                     else (k, i - 1, l, c2)
 
         (_, _, final, finalCache) = innerLoop (8, V.length lst - 8, lst, trie) inner
 
-shrinkChoicePass :: Choices -> (Choices -> (Bool, Cache)) -> Choices
-shrinkChoicePass (Choices lst _idx _maxVal g trie) f =
+shrinkChoicePass :: (Choices, Cache) -> ((Choices, Cache) -> (Bool, Cache)) -> (Choices, Cache)
+shrinkChoicePass ((Choices lst _idx _maxVal g), trie) f =
     -- trace ("shrunk from " <> show lst <> " to " <> show final) $
-    choices final g finalCache
+    (choices final g, finalCache)
     where
         outer :: ShrinkState -> ShrinkState
         outer s@(k, i, l, c)
@@ -121,10 +123,10 @@ shrinkChoicePass (Choices lst _idx _maxVal g trie) f =
 
         (_, _, final, finalCache) = innerLoop (1, V.length lst - 1, lst, trie) outer
 
-binSearchDown :: (Choices -> (Bool, Cache)) -> R.StdGen -> Word64 -> Word64 -> Int -> V.Vector Word64 -> Cache -> (V.Vector Word64, Cache)
+binSearchDown :: ((Choices, Cache) -> (Bool, Cache)) -> R.StdGen -> Word64 -> Word64 -> Int -> ChoiceSeq -> Cache -> (ChoiceSeq, Cache)
 binSearchDown f g = binSearch
     where
-        binSearch :: Word64 -> Word64 -> Int -> V.Vector Word64 -> Cache -> (V.Vector Word64, Cache)
+        binSearch :: Word64 -> Word64 -> Int -> ChoiceSeq -> Cache -> (ChoiceSeq, Cache)
         binSearch lo hi i !l c = if lo + 1 < hi
                                  then next
                                  else (l, c)
@@ -133,7 +135,7 @@ binSearchDown f g = binSearch
                 attempt = replace l (fromIntegral i) mid
                 (res, cache) =
                     -- trace ("S " <> show attempt <> " i=" <> show i) $
-                    if attempt < l then f (choices attempt g c) else (False, c)
+                    if attempt < l then f (choices attempt g, c) else (False, c)
                 next = if res
                        then binSearch lo mid i attempt cache
                        else binSearch mid hi i l cache
@@ -142,11 +144,11 @@ binSearchDown f g = binSearch
 --   minimum. Notably, a pass that made some progress is not immediately run again,
 --   because it will have already picked up most of the gains it can, so it is better
 --   to run other passes first, and it will always run that pass at least once more later.
-shrinkToFixpoint :: Choices -> (Choices -> (Bool, Cache)) -> Choices
-shrinkToFixpoint !c0 !f = if unBytes c0 == unBytes c3
+shrinkToFixpoint :: (Choices, Cache) -> ((Choices, Cache) -> (Bool, Cache)) -> Choices
+shrinkToFixpoint (!c0, ca0) !f = if unBytes c0 == unBytes c3
                           then c3
-                          else shrinkToFixpoint c3 f
+                          else shrinkToFixpoint (c3, ca3) f
     where
-        c1 = zeroChunkPass c0 f
-        c2 = deleteChunkPass c1 f
-        c3 = shrinkChoicePass c2 f
+        (c1, ca1) = zeroChunkPass (c0, ca0) f
+        (c2, ca2) = deleteChunkPass (c1, ca1) f
+        (c3, ca3) = shrinkChoicePass (c2, ca2) f

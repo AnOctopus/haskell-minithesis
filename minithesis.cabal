@@ -27,9 +27,7 @@ library
   exposed-modules:
       Examples
       Gen
-      GenTree
       Internal.Data.Tree
-      Internal.Sequence
       Internal.Util
       Internal.Vector
       Shrink

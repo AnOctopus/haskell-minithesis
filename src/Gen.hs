@@ -27,7 +27,7 @@ data PropertyResult a = Valid
                       | Invalid
                       | Failure a a
                       | AssertFailure String
-    deriving (Show, Generic)
+    deriving (Show, Eq, Generic)
 
 asTestResult :: PropertyResult a -> TestResult
 asTestResult = \case
@@ -41,14 +41,15 @@ interestingProp (Failure _ _) = True
 interestingProp (AssertFailure _) = True
 interestingProp _ = False
 
+type ChoiceSeq = V.Vector Word64
+
 newtype ChoiceState a = ChoiceState {runChoiceState :: StateT Choices Maybe a}
     deriving newtype (Functor, Applicative, Monad, MonadState Choices, MonadFail)
 data Choices = Choices {
-    unBytes :: V.Vector Word64,
+    unBytes :: ChoiceSeq,
     unIndex :: Index,
     unMaxVal :: Natural,
-    unGen :: R.StdGen,
-    unTrie :: Cache
+    unGen :: R.StdGen
     }
     deriving (Show, Generic)
 
@@ -58,7 +59,7 @@ instance NFData TestResult
 instance NFData Cache
 instance NFData Choices
 
-choices :: V.Vector Word64 -> R.StdGen -> Cache -> Choices
+choices :: ChoiceSeq -> R.StdGen -> Choices
 choices bytes = Choices bytes 0 (fromIntegral $ V.length bytes)
 
 newtype Gen a = Gen {runGen :: ChoiceState a}
@@ -80,7 +81,7 @@ makeChoice !n = makeChoiceFn n (`mod` n)
 --   other ways to be used, so we still need to be able to reject ones that are too big.
 makeChoiceFn :: Word64 -> (Word64 -> Word64) -> ChoiceState Word64
 makeChoiceFn !n !f = do
-    (Choices bytes !idx !maxValue !stdgen !trie) <- get
+    (Choices bytes !idx !maxValue !stdgen) <- get
     let
         !i = fromIntegral idx
         (!b, !stdgen') = if i < V.length bytes
@@ -92,7 +93,7 @@ makeChoiceFn !n !f = do
         !exitEarly = ((idx + 1) > fromIntegral maxValue) || b > n
     if exitEarly then -- trace (show idx <> " " <> show maxValue <> " " <> show b <> " " <> show n) $
         fail "Overrun or invalid value" else do
-        put $ Choices newBytes (idx + 1) maxValue stdgen' trie
+        put $ Choices newBytes (idx + 1) maxValue stdgen'
         pure b
 
 -- | `makeChoice`, specialized to Int since that is the most common type to want a choice as
@@ -272,8 +273,8 @@ double = Gen $ do
     mantissa0 <- makeChoice (2 ^ (52 :: Int))
     neg <- weighted 0.5
     let neg' = if neg then 1 else 0
-        mantissa = fromIntegral mantissa0 :: Word64
-        exponent = fromIntegral exponent0 :: Word64
+        mantissa = mantissa0 :: Word64
+        exponent = exponent0 :: Word64
         -- Swap the upper and lower halves of the byte range, so that 0 generates a 0 value
         exponent' = exponent + 1023
         neg64 = neg' `shiftL` 63
