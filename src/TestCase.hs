@@ -33,27 +33,34 @@ type Test a = Property a -> PropertyResult a
 assert :: Show a => Bool -> a -> Property Bool
 assert b msg = Gen . pure $ if b then Valid else AssertFailure $ show msg
 
-pred :: StateT Choices Maybe (PropertyResult a) -> (Choices, Cache) -> (Bool, Cache)
-pred test (choice, trie) = res2
+pred :: StateT Choices Maybe (PropertyResult a) -> Choices -> ShrinkState Bool
+pred test choice = res2
     where
         choiceSeq = V.toList $ unBytes choice
-        res2 = case lookup choiceSeq trie of
-            Nothing -> --trace "cache miss"
-                (res', c')
-            Just cachedResult -> --trace "cache hit"
-               (interesting cachedResult, trie)
-        mRes = runStateT test choice
-        (res', c') = case mRes of
-            Nothing -> (False, insert choiceSeq Overrun trie)
-            Just (r2, c2) -> (r3, insert choiceSeq (asTestResult r2) trie) where
-                r3 = case r2 of
-                    Failure _ _ -> case c2 of
-                            Choices {unIndex=i, unMaxVal=v}
-                                | fromIntegral i > v -> False
-                                | unBytes c2 > unBytes choice -> False
-                                | otherwise -> True
-                    AssertFailure _ -> True
-                    _ -> False
+        ~res2 = do
+            trie <- get
+            case lookup choiceSeq trie of
+                Nothing -> res'
+                Just cachedResult -> --trace "cache hit"
+                    pure $ interesting cachedResult
+        ~res' = do
+            case runStateT test choice of
+                Nothing -> do
+                    trie <- get
+                    put $ insert choiceSeq Overrun trie
+                    pure False
+                Just (r2, c2) -> do
+                    trie <- get
+                    put (insert choiceSeq (asTestResult r2) trie)
+                    let r3 = case r2 of
+                            Failure _ _ -> case c2 of
+                                Choices {unIndex=i, unMaxVal=v}
+                                    | fromIntegral i > v -> False
+                                    | unBytes c2 > unBytes choice -> False
+                                    | otherwise -> True
+                            AssertFailure _ -> True
+                            _ -> False
+                    pure r3
 
 
 runOne :: Gen a -> Int -> Maybe (a, Choices)
@@ -74,7 +81,7 @@ checkOne cs n = do
     if notable r then do
         let
             c = Unsafe.fromJust (snd <$> mRC)
-            next = shrinkToFixpoint (c, Internal.Data.Tree.empty) $ pred test
+            next = shrinkToFixpoint c $ pred test
             mRC' = runStateT test next
             fmp = fromMaybeProp (fst <$> mRC')
         -- trace ("next " <> show next <> " mRC' " <> show mRC' <> " fmp " <> show fmp) $ fmp

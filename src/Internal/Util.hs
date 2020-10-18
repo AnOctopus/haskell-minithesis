@@ -15,8 +15,11 @@ newtype Index = Index Natural
     deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic)
 instance NFData Index
 
-newtype Size = Size Natural
-    deriving (Show, Eq, Ord, Num, Enum, Real, Integral)
-
 (-.) :: Natural -> Natural -> Natural
 a -. b = if b >= a then 0 else a - b
+
+
+iterateWhileM :: Monad m => (a -> m a) -> a -> (a -> Bool) -> m [a]
+iterateWhileM f seed pred = do
+    x <- f seed
+    if pred x then (x:) <$> iterateWhileM f x pred else pure []

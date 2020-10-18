@@ -26,7 +26,6 @@ dependencies:
 - relude
 - containers
 - random >= 1.2
-# - random-source
 - vector
 # - interpolate
 - neat-interpolation
@@ -36,6 +35,7 @@ dependencies:
 default-extensions:
   - ApplicativeDo
   - BangPatterns
+  - BlockArguments
   - ConstraintKinds
   - DataKinds
   - DefaultSignatures
