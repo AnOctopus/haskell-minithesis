@@ -18,6 +18,8 @@ instance NFData Index
 (-.) :: Natural -> Natural -> Natural
 a -. b = if b >= a then 0 else a - b
 
+fromIntegralSat :: Int -> Natural
+fromIntegralSat i = if i >= 0 then (fromIntegral i) else 0
 
 iterateWhileM :: Monad m => (a -> m a) -> a -> (a -> Bool) -> m [a]
 iterateWhileM f seed pred = do

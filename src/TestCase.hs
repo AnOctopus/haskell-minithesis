@@ -1,4 +1,3 @@
-{-# LANGUAGE StrictData #-}
 module TestCase where
 
 import Relude hiding (pred)

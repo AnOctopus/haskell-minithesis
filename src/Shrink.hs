@@ -1,4 +1,3 @@
-{-# LANGUAGE StrictData #-}
 module Shrink where
 
 import Relude hiding (iterate)
@@ -60,18 +59,18 @@ deleteChunkPass (Choices lst _idx _maxVal rSeed) f =
     ret
     where
         inner :: ShrinkTup -> ShrinkState ShrinkTup
-        inner s@(k, i, !l)
+        inner s@(k, i, l)
             | i >= 0 = next
             | k > 0 = pure (k `div` 2, V.length l - k - 1, l)
             | otherwise = pure s
             where
-                attempt = dropWithin (fromIntegral i) (fromIntegral k) l
+                attempt = dropWithin (fromIntegralSat i) (fromIntegralSat k) l
                     -- trace ("D " <> show attempt <> " k=" <> show k <> " i=" <> show i <> " maxVal=" <> show (V.length attempt)) $
-                !next = do
+                next = do
                     res <- if attempt < l then f (choices attempt rSeed) else pure False
                     if | res -> pure (k, i, attempt)
                        | i > 0 && attempt ! (i-1) > 0 -> do
-                             let !a2 = replace attempt (fromIntegral i-1) (attempt ! (i-1) `div` 2)
+                             let a2 = replace attempt (fromIntegralSat i-1) (attempt ! (i-1) `div` 2)
                              r2 <- f (choices a2 rSeed)
                              if r2 then pure (k, i, a2)
                                    else pure (k, i-1, l)
@@ -82,7 +81,7 @@ deleteChunkPass (Choices lst _idx _maxVal rSeed) f =
             pure $ choices final rSeed
 
 zeroWithin :: (Num a, Unbox a) => Natural -> Natural -> Vector a -> Vector a
-zeroWithin startIdx dropCount !l = prefix <> infix' <> suffix
+zeroWithin startIdx dropCount l = prefix <> infix' <> suffix
     where
         prefix = VI.take startIdx l
         suffix = VI.drop (startIdx + dropCount) l
@@ -90,18 +89,18 @@ zeroWithin startIdx dropCount !l = prefix <> infix' <> suffix
 
 -- | A pass to change blocks of choices into zeroes.
 zeroChunkPass :: Choices -> (Choices -> ShrinkState Bool) -> ShrinkState Choices
-zeroChunkPass !(Choices lst _idx _maxVal rSeed) f =
+zeroChunkPass (Choices lst _idx _maxVal rSeed) f =
     -- trace ("zeroed from " <> show lst <> " to " <> show final) $
     ret
     where
         inner :: ShrinkTup -> ShrinkState ShrinkTup
-        inner s@(k, i, !l)
+        inner s@(k, i, l)
             | i >= 0 = next
             | k > 0 = pure (k `div` 2, V.length l - k, l)
             | otherwise = pure s
             where
-                attempt = zeroWithin (fromIntegral i) (fromIntegral k) l
-                !next = do
+                attempt = zeroWithin (fromIntegralSat i) (fromIntegralSat k) l
+                next = do
                     res <- if attempt < l then f (choices attempt rSeed) else pure False
                     pure if res
                         then (k, i - k, attempt)
@@ -123,8 +122,8 @@ shrinkChoicePass (Choices lst _idx _maxVal rSeed) f =
             | otherwise = pure s
             where
                 lo = 0
-                hi = l ! i
-                !next = do
+                ~hi = l ! i
+                next = do
                     attempt <- binSearchDown f rSeed lo hi i l
                     pure (k, i-1, attempt)
 
@@ -137,7 +136,7 @@ binSearchDown :: (Choices -> ShrinkState Bool) -> R.StdGen -> Word64 -> Word64 -
 binSearchDown f rSeed = binSearch
     where
         binSearch :: Word64 -> Word64 -> Int -> ChoiceSeq -> ShrinkState ChoiceSeq
-        binSearch lo hi i !l = if lo + 1 < hi
+        binSearch lo hi i l = if lo + 1 < hi
                                  then next
                                  else pure l
             where
@@ -155,16 +154,16 @@ binSearchDown f rSeed = binSearch
 --   because it will have already picked up most of the gains it can, so it is better
 --   to run other passes first, and it will always run that pass at least once more later.
 shrinkToFixpoint :: Choices -> (Choices -> ShrinkState Bool) -> Choices
-shrinkToFixpoint !c0 f = evalState (shrinkToFixpoint' c0 f) Internal.Data.Tree.empty
+shrinkToFixpoint c0 f = evalState (shrinkToFixpoint' c0 f) Internal.Data.Tree.empty
 
 
 shrinkToFixpoint' :: Choices -> (Choices -> ShrinkState Bool) -> ShrinkState Choices
-shrinkToFixpoint' !c0 f = c
+shrinkToFixpoint' c0 f = c
     where
         c = do
-            !c1 <- zeroChunkPass c0 f
-            !c2 <- deleteChunkPass c1 f
-            !c3 <- shrinkChoicePass c2 f
+            c1 <- zeroChunkPass c0 f
+            c2 <- deleteChunkPass c1 f
+            c3 <- shrinkChoicePass c2 f
             if unBytes c0 == unBytes c3
                 then pure c3
                 else shrinkToFixpoint' c3 f

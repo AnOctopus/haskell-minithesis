@@ -30,7 +30,6 @@ dependencies:
 # - interpolate
 - neat-interpolation
 - hspec
-# - ghc-clippy-plugin
 
 default-extensions:
   - ApplicativeDo
@@ -67,6 +66,8 @@ default-extensions:
   - RankNTypes
   - ScopedTypeVariables
   - StandaloneDeriving
+  - Strict
+  - StrictData
   - TupleSections
   - TypeApplications
   - TypeOperators

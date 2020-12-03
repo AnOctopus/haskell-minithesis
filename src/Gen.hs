@@ -1,4 +1,3 @@
-{-# LANGUAGE StrictData #-}
 module Gen where
 
 import Relude
@@ -71,7 +70,7 @@ newtype Gen a = Gen {runGen :: ChoiceState a}
 --   If too much data is requested, or data is requested beyond the original length
 --   during shrinking, the test case is invalid and is aborted.
 makeChoice :: Word64 -> ChoiceState Word64
-makeChoice !n = makeChoiceFn n (`mod` n)
+makeChoice n = makeChoiceFn n (`mod` n)
 
 -- | Produces a choice between 0 and n, where if the choice is generated, it is interpreted
 --   from a Word64 by a provided function. This allows for customizing the generation of
@@ -80,17 +79,17 @@ makeChoice !n = makeChoiceFn n (`mod` n)
 --   it is not used in generation, because shrinking can cause choice values generated in
 --   other ways to be used, so we still need to be able to reject ones that are too big.
 makeChoiceFn :: Word64 -> (Word64 -> Word64) -> ChoiceState Word64
-makeChoiceFn !n !f = do
-    (Choices bytes !idx !maxValue !stdgen) <- get
+makeChoiceFn n f = do
+    (Choices bytes idx maxValue stdgen) <- get
     let
-        !i = fromIntegral idx
-        (!b, !stdgen') = if i < V.length bytes
+        i = fromIntegral idx
+        (!b, stdgen') = if i < V.length bytes
             then (bytes V.! i, stdgen)
-            else let (!b', !g') = R.genWord64 stdgen in (f b', g')
-        !newBytes = if i < V.length bytes
+            else let (!b', g') = R.genWord64 stdgen in (f b', g')
+        newBytes = if i < V.length bytes
             then bytes
             else bytes `V.snoc` b
-        !exitEarly = ((idx + 1) > fromIntegral maxValue) || b > n
+        exitEarly = ((idx + 1) > fromIntegral maxValue) || b > n
     if exitEarly then -- trace (show idx <> " " <> show maxValue <> " " <> show b <> " " <> show n) $
         fail "Overrun or invalid value" else do
         put $ Choices newBytes (idx + 1) maxValue stdgen'
@@ -99,7 +98,7 @@ makeChoiceFn !n !f = do
 -- | `makeChoice`, specialized to Int since that is the most common type to want a choice as
 makeChoiceInt :: Int -> ChoiceState Int
 makeChoiceInt n = do
-    !v <- makeChoice $ fromIntegral n
+    v <- makeChoice $ fromIntegral n
     pure $ fromIntegral v
 
 -- | A weighted coin flip, which results in True with probability `p`, which should be
@@ -128,8 +127,8 @@ forcedChoice !n = do
 
 -- | forcedChoice, specialized for Bool because that is a common case that deserves ergonomics.
 forcedChoiceBool :: Bool -> ChoiceState Bool
-forcedChoiceBool !b = do
-    let !b' = fromEnum b
+forcedChoiceBool b = do
+    let b' = fromEnum b
     !c <- forcedChoice b'
     pure $ toEnum c
 
@@ -162,8 +161,8 @@ intRange = integralRange
 -- | Generates a list of `a`, with a random length that is geometrically distributed, average length 10.
 -- Shrinks to shorter lists, and smaller values of `a`.
 list :: forall a. Gen a -> Gen [a]
-list !gen = Gen $ do
-    !b <- weighted 0.9
+list gen = Gen $ do
+    b <- weighted 0.9
     case b of
         -- stop here, return an empty list. the only stateful computation is bool choice
         False -> pure []
@@ -173,7 +172,7 @@ list !gen = Gen $ do
             -- are interleaved in the choice list, which makes it easier to delete the pairs
             -- and so aids shrinking
             !newVal <- runGen gen
-            !l' <- runGen $ list gen
+            l' <- runGen $ list gen
             -- The choice for the value is made before the one for the rest of the list
             -- so it should be added to the front, to match the choice order
             let newList = pure newVal <> l'
@@ -183,8 +182,8 @@ list !gen = Gen $ do
 -- The length above `lo` is geometrically distributed with mean 10, capped at `hi` - `lo`.
 -- TODO: Rewrite to make the average length of the list be the average of `lo` and `hi`.
 listRange :: Int -> Int -> Gen a -> Gen [a]
-listRange !lo !hi !gen = Gen $ do
-    !b <- if lo > 0
+listRange lo hi gen = Gen $ do
+    b <- if lo > 0
           then  weighted 1
           else if hi < 0
           then weighted 0
@@ -192,7 +191,7 @@ listRange !lo !hi !gen = Gen $ do
     case b of
         False -> pure []
         True -> do
-            !newVal <- runGen gen
+            newVal <- runGen gen
             l' <- runGen $ listRange (lo-1) (hi-1) gen
             let newList = pure newVal <> l'
             pure newList

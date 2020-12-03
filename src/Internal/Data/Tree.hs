@@ -1,4 +1,3 @@
-{-# LANGUAGE StrictData #-}
 module Internal.Data.Tree where
 
 import Relude
